@@ -1,5 +1,3 @@
-# TEMPORARY: Reset database on Streamlit Cloud
-import os
 if os.path.exists('rin_ai.db'):
     os.remove('rin_ai.db')
     print("Old database cleared — fresh start")
