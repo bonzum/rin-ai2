@@ -1,6 +1,3 @@
-if os.path.exists('rin_ai.db'):
-    os.remove('rin_ai.db')
-    print("Old database cleared — fresh start")
 import streamlit as st
 import pandas as pd
 import numpy as np
