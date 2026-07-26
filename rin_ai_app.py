@@ -11,7 +11,7 @@ from sklearn.preprocessing import StandardScaler
 import warnings
 warnings.filterwarnings('ignore')
 
-st.set_page_config(page_title="RIN AI v1.2 | Clinical Decision Support", page_icon="", layout="wide")
+st.set_page_config(page_title="RIN AI v1.2 | Clinical Decision Support", page_icon="🧠", layout="wide")
 
 st.markdown("""
 <style>
@@ -182,8 +182,6 @@ div[data-testid="stSidebar"] {
 def init_database():
     conn = sqlite3.connect('rin_ai.db')
     c = conn.cursor()
-
-    # Create table with full schema (for new databases)
     c.execute("""CREATE TABLE IF NOT EXISTS patients (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT, age INTEGER, gender TEXT, location TEXT,
@@ -192,23 +190,12 @@ def init_database():
         diabetes_risk TEXT, risk_score REAL, risk_explanation TEXT,
         risk_factors TEXT, next_steps TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
-
-    # --- FIX: Auto-add missing columns if table exists from older version ---
+    # Auto-add missing columns for older databases
     c.execute("PRAGMA table_info(patients)")
     existing_cols = [row[1] for row in c.fetchall()]
-
-    missing_cols = {
-        'risk_factors': 'TEXT',
-        'next_steps': 'TEXT',
-        'risk_explanation': 'TEXT',
-        'risk_score': 'REAL',
-        'diabetes_risk': 'TEXT'
-    }
-
-    for col, col_type in missing_cols.items():
+    for col, col_type in {'risk_factors': 'TEXT', 'next_steps': 'TEXT', 'risk_explanation': 'TEXT', 'risk_score': 'REAL', 'diabetes_risk': 'TEXT'}.items():
         if col not in existing_cols:
             c.execute(f"ALTER TABLE patients ADD COLUMN {col} {col_type}")
-
     c.execute("""CREATE TABLE IF NOT EXISTS feedback (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         patient_id INTEGER, module TEXT, helpful TEXT, comment TEXT,
@@ -230,8 +217,7 @@ def init_database():
         nitrogen INTEGER, phosphorus INTEGER, potassium INTEGER, ph REAL,
         recommended_crop TEXT, confidence INTEGER, weather_data TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
-    conn.commit()
-    conn.close()
+    conn.commit(); conn.close()
 
 init_database()
 
@@ -380,7 +366,7 @@ def check_outbreaks():
         if fever_count >= 3:
             alerts.append({
                 'type': 'FEVER_OUTBREAK', 'location': location,
-                'message': f'Possible fever outbreak in {location}: {fever_count} cases in 7 days',
+                'message': f'⚠️ Possible fever outbreak in {location}: {fever_count} cases in 7 days',
                 'severity': 'high' if fever_count >= 5 else 'medium', 'count': fever_count
             })
     for location in df['location'].unique():
@@ -390,7 +376,7 @@ def check_outbreaks():
         if high_risk >= 3:
             alerts.append({
                 'type': 'DIABETES_CLUSTER', 'location': location,
-                'message': f'High diabetes risk cluster in {location}: {high_risk} high-risk patients',
+                'message': f'📊 High diabetes risk cluster in {location}: {high_risk} high-risk patients',
                 'severity': 'medium', 'count': high_risk
             })
     return alerts
@@ -403,57 +389,69 @@ def save_alert(alert):
               (alert['type'], alert['location'], alert['message'], alert['severity'], 'active'))
     conn.commit(); conn.close()
 
-# SIDEBAR
+# ═══════════════════════════════════════════════════════════════════════════════
+# SIDEBAR - CRITICAL FIX: Navigation survives form submissions
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Track current page so form submissions don't reset navigation
+if 'current_page' not in st.session_state:
+    st.session_state['current_page'] = "🏠 Home"
+
+# If we came from a welcome page button, update current_page
+if 'navigate_to' in st.session_state:
+    st.session_state['current_page'] = st.session_state['navigate_to']
+    del st.session_state['navigate_to']
+
 with st.sidebar:
     st.markdown("""
     <div style="text-align: center; padding: 1rem 0; border-bottom: 1px solid rgba(56, 189, 248, 0.2); margin-bottom: 1rem;">
-        <h1 style="color: #38bdf8; margin: 0; font-size: 1.8rem; font-weight: 800;">RIN AI</h1>
+        <h1 style="color: #38bdf8; margin: 0; font-size: 1.8rem; font-weight: 800;">🧠 RIN AI</h1>
         <p style="color: #94a3b8; margin: 0.3rem 0 0 0; font-size: 0.75rem; letter-spacing: 2px;">AUTONOMOUS INTELLIGENCE</p>
         <p style="color: #64748b; margin: 0.2rem 0 0 0; font-size: 0.65rem;">Bamenda, Cameroon - 2026</p>
     </div>
     """, unsafe_allow_html=True)
     st.markdown("---")
-    # Handle navigation from Home page buttons
-if 'navigate_to' in st.session_state:
-    page = st.session_state.pop('navigate_to')
-else:
-    page = st.radio("Navigate",
-        [" Home", "RIN MEDIC", "RIN AGRI", "Analytics", "⚙ Settings"],
-        label_visibility="collapsed")
+
+    # FIX: Always render radio with correct index so it remembers where we are
+    pages = ["🏠 Home", "🏥 RIN MEDIC", "🌾 RIN AGRI", "📊 Analytics", "⚙️ Settings"]
+    default_index = pages.index(st.session_state['current_page'])
+    page = st.radio("Navigate", pages, index=default_index, label_visibility="collapsed")
+    st.session_state['current_page'] = page  # Remember when user manually clicks
+
     st.markdown("---")
-    st.markdown("### System Status")
+    st.markdown("### 🔋 System Status")
     st.markdown(f"**AI Model:** `{model_accuracy:.1%}` accuracy")
     st.markdown(f"**Database:** `SQLite Active`")
     st.markdown(f"**Weather:** `OpenWeatherMap Ready`")
     st.markdown("---")
-    st.markdown("### Intelligence Cycle")
+    st.markdown("### 🔄 Intelligence Cycle")
     cycle_steps = ["Collect", "Clean", "Understand", "Connect", "Act", "Learn"]
     current_step = (datetime.now().second // 10) % 6
     for i, step in enumerate(cycle_steps):
-        if i == current_step: st.markdown(f"**-> {step}** ")
+        if i == current_step: st.markdown(f"**→ {step}** ⚡")
         else: st.markdown(f"<span style='color: #64748b'>{step}</span>", unsafe_allow_html=True)
 
 # MAIN HEADER
 st.markdown("""
 <div class="main-header">
     <h1 style="color: white; margin: 0; font-size: 2.2rem; font-weight: 800;">
-        RIN AI -- Global Autonomous Intelligence Platform
+        🌍 RIN AI — Global Autonomous Intelligence Platform
     </h1>
     <p style="color: #94a3b8; margin: 0.5rem 0 0 0; font-size: 1rem;">
         Building the intelligence layer that makes humanity more capable, more equitable, and more resilient.
     </p>
     <p style="color: #38bdf8; margin: 0.3rem 0 0 0; font-size: 0.85rem; font-weight: 500;">
-        Founded by Mark Rinwi Bonzum . Bamenda, Cameroon . 2026
+        Founded by Mark Rinwi Bonzum · Bamenda, Cameroon · 2026
     </p>
 </div>
 """, unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PAGE: HOME / WELCOME -- FIX: Make modules visible on first page
+# PAGE: HOME / WELCOME — FIX: Make modules visible on first page
 # ═══════════════════════════════════════════════════════════════════════════════
 
-if page == " Home":
-    st.markdown("##  Welcome to RIN AI")
+if page == "🏠 Home":
+    st.markdown("## 👋 Welcome to RIN AI")
     st.markdown("""
     <p style="color: #94a3b8; font-size: 1.1rem;">
     RIN AI is an autonomous intelligence platform built for African healthcare and agriculture. 
@@ -465,27 +463,27 @@ if page == " Home":
     with col1:
         st.markdown("""
         <div class="welcome-module" onclick="window.location.href='?page=RIN+MEDIC'">
-            <div class="icon"></div>
+            <div class="icon">🏥</div>
             <h3>RIN MEDIC</h3>
             <p>AI-powered diabetes risk assessment and outbreak detection for health workers</p>
             <span style="background: rgba(34, 197, 94, 0.2); color: #22c55e; padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">* LIVE</span>
         </div>
         """, unsafe_allow_html=True)
-        if st.button("Open RIN MEDIC", use_container_width=True, key="welcome_medic"):
-            st.session_state['navigate_to'] = "RIN MEDIC"
+        if st.button("🚀 Open RIN MEDIC", use_container_width=True, key="welcome_medic"):
+            st.session_state['navigate_to'] = "🏥 RIN MEDIC"
             st.rerun()
 
     with col2:
         st.markdown("""
         <div class="welcome-module" onclick="window.location.href='?page=RIN+AGRI'">
-            <div class="icon"></div>
+            <div class="icon">🌾</div>
             <h3>RIN AGRI</h3>
             <p>Precision crop recommendations with live weather data for farmers</p>
             <span style="background: rgba(34, 197, 94, 0.2); color: #22c55e; padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">* LIVE</span>
         </div>
         """, unsafe_allow_html=True)
-        if st.button("Open RIN AGRI", use_container_width=True, key="welcome_agri"):
-            st.session_state['navigate_to'] = "RIN AGRI"
+        if st.button("🚀 Open RIN AGRI", use_container_width=True, key="welcome_agri"):
+            st.session_state['navigate_to'] = "🌾 RIN AGRI"
             st.rerun()
 
     st.markdown("---")
@@ -497,7 +495,7 @@ if page == " Home":
     active_alerts = pd.read_sql_query("SELECT COUNT(*) as count FROM alerts WHERE status='active'", conn).iloc[0]['count']
     conn.close()
 
-    st.markdown("### Platform Overview")
+    st.markdown("### 📊 Platform Overview")
     c1, c2, c3 = st.columns(3)
     with c1: st.markdown(f"""<div class="metric-box"><div class="metric-value">{total_patients}</div><div class="metric-label">Patients Assessed</div></div>""", unsafe_allow_html=True)
     with c2: st.markdown(f"""<div class="metric-box"><div class="metric-value" style="color: #a855f7;">{total_farms}</div><div class="metric-label">Farm Assessments</div></div>""", unsafe_allow_html=True)
@@ -506,12 +504,12 @@ if page == " Home":
     st.markdown("---")
     st.markdown("""
     <div style="background: #1e293b; padding: 1.5rem; border-radius: 12px; border: 1px solid rgba(56, 189, 248, 0.15);">
-        <h4 style="color: #38bdf8; margin: 0 0 1rem 0;">How RIN AI Works</h4>
+        <h4 style="color: #38bdf8; margin: 0 0 1rem 0;">💡 How RIN AI Works</h4>
         <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 1rem; text-align: center;">
-            <div><div style="font-size: 2rem;"></div><strong style="color: white;">Collect</strong><br><span style="color: #94a3b8; font-size: 0.8rem;">Patient & farm data</span></div>
-            <div><div style="font-size: 2rem;"></div><strong style="color: white;">Understand</strong><br><span style="color: #94a3b8; font-size: 0.8rem;">AI analyzes patterns</span></div>
-            <div><div style="font-size: 2rem;"></div><strong style="color: white;">Recommend</strong><br><span style="color: #94a3b8; font-size: 0.8rem;">Clear, explained advice</span></div>
-            <div><div style="font-size: 2rem;"></div><strong style="color: white;">Learn</strong><br><span style="color: #94a3b8; font-size: 0.8rem;">Continuously improves</span></div>
+            <div><div style="font-size: 2rem;">📥</div><strong style="color: white;">Collect</strong><br><span style="color: #94a3b8; font-size: 0.8rem;">Patient & farm data</span></div>
+            <div><div style="font-size: 2rem;">🧠</div><strong style="color: white;">Understand</strong><br><span style="color: #94a3b8; font-size: 0.8rem;">AI analyzes patterns</span></div>
+            <div><div style="font-size: 2rem;">💡</div><strong style="color: white;">Recommend</strong><br><span style="color: #94a3b8; font-size: 0.8rem;">Clear, explained advice</span></div>
+            <div><div style="font-size: 2rem;">📈</div><strong style="color: white;">Learn</strong><br><span style="color: #94a3b8; font-size: 0.8rem;">Continuously improves</span></div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -520,8 +518,8 @@ if page == " Home":
 # PAGE: DASHBOARD (Analytics renamed)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-elif page == "Analytics":
-    st.markdown("## RIN AI Intelligence Analytics")
+elif page == "📊 Analytics":
+    st.markdown("## 📊 RIN AI Intelligence Analytics")
     conn = get_db_connection()
     daily_counts = pd.read_sql_query("SELECT DATE(created_at) as date, COUNT(*) as count FROM patients GROUP BY DATE(created_at) ORDER BY date", conn)
     risk_dist = pd.read_sql_query("SELECT diabetes_risk, COUNT(*) as count FROM patients GROUP BY diabetes_risk", conn)
@@ -531,7 +529,7 @@ elif page == "Analytics":
     conn.close()
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown("### Patient Volume Over Time")
+        st.markdown("### 📈 Patient Volume Over Time")
         if len(daily_counts) > 0:
             import plotly.express as px
             fig = px.line(daily_counts, x='date', y='count', labels={'date': 'Date', 'count': 'Patients'}, line_shape='spline')
@@ -539,7 +537,7 @@ elif page == "Analytics":
             st.plotly_chart(fig, use_container_width=True)
         else: st.info("No data yet. Add patients to see trends.")
     with col2:
-        st.markdown("###  Cases by Location")
+        st.markdown("### 🗺️ Cases by Location")
         if len(location_dist) > 0:
             import plotly.express as px
             fig = px.bar(location_dist, x='location', y='count', labels={'location': 'Location', 'count': 'Cases'}, color='count', color_continuous_scale='Blues')
@@ -549,7 +547,7 @@ elif page == "Analytics":
     st.markdown("---")
     col3, col4 = st.columns(2)
     with col3:
-        st.markdown("### Risk Level Distribution")
+        st.markdown("### 🎯 Risk Level Distribution")
         if len(risk_dist) > 0:
             import plotly.express as px
             fig = px.pie(risk_dist, values='count', names='diabetes_risk', color='diabetes_risk', color_discrete_map={'HIGH': '#ef4444', 'MEDIUM': '#f59e0b', 'LOW': '#22c55e'})
@@ -557,7 +555,7 @@ elif page == "Analytics":
             st.plotly_chart(fig, use_container_width=True)
         else: st.info("No risk data yet.")
     with col4:
-        st.markdown("### Top Recommended Crops")
+        st.markdown("### 🌾 Top Recommended Crops")
         if len(farm_dist) > 0:
             import plotly.express as px
             fig = px.bar(farm_dist, x='recommended_crop', y='count', labels={'recommended_crop': 'Crop', 'count': 'Recommendations'}, color='count', color_continuous_scale='Greens')
@@ -565,7 +563,7 @@ elif page == "Analytics":
             st.plotly_chart(fig, use_container_width=True)
         else: st.info("No farm data yet. Use RIN AGRI to add farm assessments.")
     st.markdown("---")
-    st.markdown("### User Feedback")
+    st.markdown("### 👍 User Feedback")
     if len(feedback_stats) > 0:
         import plotly.express as px
         fig = px.bar(feedback_stats, x='helpful', y='count', labels={'helpful': 'Feedback', 'count': 'Count'}, color='helpful', color_discrete_map={'Yes': '#22c55e', 'No': '#ef4444', 'Comment': '#38bdf8'})
@@ -574,18 +572,18 @@ elif page == "Analytics":
     else: st.info("No feedback yet. Users can rate assessments in RIN MEDIC.")
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PAGE: RIN MEDIC -- COMPLETELY REDESIGNED BASED ON USER FEEDBACK
+# PAGE: RIN MEDIC — COMPLETELY REDESIGNED BASED ON USER FEEDBACK
 # ═══════════════════════════════════════════════════════════════════════════════
 
-elif page == "RIN MEDIC":
-    st.markdown("## RIN MEDIC -- Clinical Decision Support")
+elif page == "🏥 RIN MEDIC":
+    st.markdown("## 🏥 RIN MEDIC — Clinical Decision Support")
     st.markdown("""<p style="color: #94a3b8;">AI-powered diabetes risk assessment and outbreak detection. Every recommendation includes an explanation. <strong>Humans are always in control.</strong></p>""", unsafe_allow_html=True)
 
-    tab1, tab2 = st.tabs(["➕ New Assessment", "Patient Records"])
+    tab1, tab2 = st.tabs(["➕ New Assessment", "📋 Patient Records"])
 
     with tab1:
-        st.markdown("### Patient Information")
-        st.markdown("<p style='color: #64748b; font-size: 0.85rem;'>Fill in all fields below - no need to press Enter. Click the blue button at the bottom when done.</p>", unsafe_allow_html=True)
+        st.markdown("### 📝 Patient Information")
+        st.markdown("<p style='color: #64748b; font-size: 0.85rem;'>Fill all fields below and click the blue button at the bottom. No need to press Enter.</p>", unsafe_allow_html=True)
 
         # FIX: Wrapped in st.form() so text inputs do NOT require pressing Enter
         with st.form("medic_form", clear_on_submit=False):
@@ -596,13 +594,13 @@ elif page == "RIN MEDIC":
                 gender = st.selectbox("Gender *", ["Female", "Male", "Other"])
                 location = st.text_input("Location / Village *", placeholder="e.g., Bamenda Central")
             with col2:
-                temperature = st.number_input("Body Temperature (C)", min_value=30.0, max_value=45.0, value=36.5, step=0.1)
+                temperature = st.number_input("Body Temperature (°C)", min_value=30.0, max_value=45.0, value=36.5, step=0.1)
                 bp_sys = st.number_input("Blood Pressure Systolic (mmHg)", min_value=60, max_value=250, value=120, help="Top number")
                 bp_dia = st.number_input("Blood Pressure Diastolic (mmHg)", min_value=40, max_value=150, value=80, help="Bottom number")
                 heart_rate = st.number_input("Heart Rate (bpm)", min_value=40, max_value=200, value=72)
 
             st.markdown("---")
-            st.markdown("###  Clinical Measurements")
+            st.markdown("### 🔬 Clinical Measurements")
 
             col3, col4, col5 = st.columns(3)
             with col3:
@@ -614,7 +612,7 @@ elif page == "RIN MEDIC":
                 bmi_auto = round(weight_kg / ((height_cm/100) ** 2), 1)
                 st.markdown(f"""
                 <div style="background: rgba(56, 189, 248, 0.1); padding: 0.5rem; border-radius: 6px; margin-top: 0.5rem;">
-                    <span style="color: #38bdf8; font-size: 0.85rem;">Auto BMI: <strong>{bmi_auto}</strong> (updates on submit)</span>
+                    <span style="color: #38bdf8; font-size: 0.85rem;">📐 Auto BMI: <strong>{bmi_auto}</strong> (updates on submit)</span>
                 </div>
                 """, unsafe_allow_html=True)
                 bmi_manual = st.number_input("Or enter BMI manually", min_value=10.0, max_value=60.0, value=bmi_auto, step=0.1, label_visibility="collapsed")
@@ -641,7 +639,7 @@ elif page == "RIN MEDIC":
             st.markdown("""
             <div style="background: #1e293b; padding: 0.8rem; border-radius: 8px; margin: 1rem 0; border: 1px solid rgba(56, 189, 248, 0.1);">
                 <span style="color: #94a3b8; font-size: 0.8rem;">
-                <strong>Reference Ranges:</strong> 
+                📋 <strong>Reference Ranges:</strong> 
                 Glucose: <span class="normal-value">&lt;100 normal</span> / <span class="abnormal-medium">100-125 prediabetic</span> / <span class="abnormal-high">≥126 diabetic</span> | 
                 BP: <span class="normal-value">&lt;120/80 normal</span> / <span class="abnormal-high">≥140/90 high</span> | 
                 BMI: <span class="normal-value">18.5-24.9 normal</span> / <span class="abnormal-medium">25-29.9 overweight</span> / <span class="abnormal-high">≥30 obese</span>
@@ -650,7 +648,7 @@ elif page == "RIN MEDIC":
             """, unsafe_allow_html=True)
 
             st.markdown("---")
-            submitted = st.form_submit_button("RUN AI RISK ASSESSMENT", use_container_width=True, type="primary")
+            submitted = st.form_submit_button("🔬 RUN AI RISK ASSESSMENT", use_container_width=True, type="primary")
 
         # Values computed from form data (available after submit)
         symptoms_text = ", ".join(selected_symptoms) if selected_symptoms else "None reported"
@@ -659,7 +657,7 @@ elif page == "RIN MEDIC":
         if submitted:
             # Validation
             if not name or not location:
-                st.error("Please fill in Patient Name and Location (required fields)")
+                st.error("⚠️ Please fill in Patient Name and Location (required fields)")
             else:
                 with st.spinner("RIN AI is analyzing patient data..."):
                     skin_thickness, insulin, dpf = 25, 80, 0.5
@@ -667,41 +665,41 @@ elif page == "RIN MEDIC":
                     features_scaled = scaler.transform(features)
                     risk_prob = model.predict_proba(features_scaled)[0][1]
 
-                    if risk_prob >= 0.7: risk_level, risk_color, risk_icon = "HIGH", "#ef4444", ""
-                    elif risk_prob >= 0.4: risk_level, risk_color, risk_icon = "MEDIUM", "#f59e0b", ""
-                    else: risk_level, risk_color, risk_icon = "LOW", "#22c55e", ""
+                    if risk_prob >= 0.7: risk_level, risk_color, risk_icon = "HIGH", "#ef4444", "🔴"
+                    elif risk_prob >= 0.4: risk_level, risk_color, risk_icon = "MEDIUM", "#f59e0b", "🟡"
+                    else: risk_level, risk_color, risk_icon = "LOW", "#22c55e", "🟢"
 
-                    # FIX: Better AI explanation -- separate diabetes risk factors from infection symptoms
+                    # FIX: Better AI explanation — separate diabetes risk factors from infection symptoms
                     diabetes_factors = []
                     infection_factors = []
                     other_factors = []
 
                     # Diabetes-specific factors
                     if glucose > 126:
-                        diabetes_factors.append(f"Blood glucose <span class='abnormal-high'>{glucose} mg/dL</span> -- above diabetic threshold (≥126)")
+                        diabetes_factors.append(f"Blood glucose <span class='abnormal-high'>{glucose} mg/dL</span> — above diabetic threshold (≥126)")
                     elif glucose > 100:
-                        diabetes_factors.append(f"Blood glucose <span class='abnormal-medium'>{glucose} mg/dL</span> -- prediabetic range (100-125)")
+                        diabetes_factors.append(f"Blood glucose <span class='abnormal-medium'>{glucose} mg/dL</span> — prediabetic range (100-125)")
                     else:
-                        diabetes_factors.append(f"Blood glucose <span class='normal-value'>{glucose} mg/dL</span> -- within normal range")
+                        diabetes_factors.append(f"Blood glucose <span class='normal-value'>{glucose} mg/dL</span> — within normal range")
 
                     if bmi >= 30:
-                        diabetes_factors.append(f"BMI <span class='abnormal-high'>{bmi}</span> -- obesity is a major diabetes risk factor")
+                        diabetes_factors.append(f"BMI <span class='abnormal-high'>{bmi}</span> — obesity is a major diabetes risk factor")
                     elif bmi >= 25:
-                        diabetes_factors.append(f"BMI <span class='abnormal-medium'>{bmi}</span> -- overweight increases risk")
+                        diabetes_factors.append(f"BMI <span class='abnormal-medium'>{bmi}</span> — overweight increases risk")
                     else:
-                        diabetes_factors.append(f"BMI <span class='normal-value'>{bmi}</span> -- healthy weight range")
+                        diabetes_factors.append(f"BMI <span class='normal-value'>{bmi}</span> — healthy weight range")
 
                     if age > 45:
-                        diabetes_factors.append(f"Age <span class='abnormal-medium'>{age}</span> -- risk increases after 45")
+                        diabetes_factors.append(f"Age <span class='abnormal-medium'>{age}</span> — risk increases after 45")
 
                     if bp_sys >= 140 or bp_dia >= 90:
-                        diabetes_factors.append(f"Blood pressure <span class='abnormal-high'>{bp_sys}/{bp_dia} mmHg</span> -- hypertension often co-occurs with diabetes")
+                        diabetes_factors.append(f"Blood pressure <span class='abnormal-high'>{bp_sys}/{bp_dia} mmHg</span> — hypertension often co-occurs with diabetes")
                     elif bp_sys >= 120 or bp_dia >= 80:
-                        diabetes_factors.append(f"Blood pressure <span class='abnormal-medium'>{bp_sys}/{bp_dia} mmHg</span> -- elevated, monitor closely")
+                        diabetes_factors.append(f"Blood pressure <span class='abnormal-medium'>{bp_sys}/{bp_dia} mmHg</span> — elevated, monitor closely")
 
                     # Infection symptoms (NOT linked to diabetes risk)
                     if temperature > 38.0:
-                        infection_factors.append(f"Temperature <span class='abnormal-high'>{temperature} C</span> -- indicates possible infection, NOT diabetes")
+                        infection_factors.append(f"Temperature <span class='abnormal-high'>{temperature}°C</span> — indicates possible infection, NOT diabetes")
 
                     # Check symptom selections
                     diabetic_symptoms = ["Excessive thirst (polydipsia)", "Frequent urination (polyuria)", "Unexplained weight loss", 
@@ -712,14 +710,14 @@ elif page == "RIN MEDIC":
                     if selected_diabetic:
                         diabetes_factors.append(f"Diabetic symptoms reported: <span class='abnormal-medium'>{', '.join(selected_diabetic)}</span>")
                     if selected_infection:
-                        infection_factors.append(f"Infection symptoms reported: <span class='abnormal-high'>{', '.join(selected_infection)}</span> -- consider infection workup")
+                        infection_factors.append(f"Infection symptoms reported: <span class='abnormal-high'>{', '.join(selected_infection)}</span> — consider infection workup")
 
                     # Build explanation
                     explanation_parts = diabetes_factors + infection_factors + other_factors
                     if not explanation_parts:
                         explanation_parts.append("All clinical values appear within normal ranges. Continue routine monitoring.")
 
-                    explanation = "<br>".join([f"* {p}" for p in explanation_parts])
+                    explanation = "<br>".join([f"• {p}" for p in explanation_parts])
 
                     # FIX: Show main prediction factors
                     feature_importance = {
@@ -732,31 +730,31 @@ elif page == "RIN MEDIC":
                     next_steps = []
                     if risk_level == "HIGH":
                         next_steps = [
-                            "Order fasting blood glucose and HbA1c test",
-                            "Refer to physician for diabetes confirmation",
-                            "Review current medications for glucose effects",
-                            "Provide dietary counseling (low sugar, high fiber)",
-                            "Recommend physical activity assessment",
-                            "Schedule follow-up within 1-2 weeks"
+                            "🩸 Order fasting blood glucose and HbA1c test",
+                            "📋 Refer to physician for diabetes confirmation",
+                            "💊 Review current medications for glucose effects",
+                            "🥗 Provide dietary counseling (low sugar, high fiber)",
+                            "🏃 Recommend physical activity assessment",
+                            "📅 Schedule follow-up within 1-2 weeks"
                         ]
                     elif risk_level == "MEDIUM":
                         next_steps = [
-                            "Order fasting blood glucose test",
-                            "Lifestyle counseling (diet, exercise, weight)",
-                            "⚖ Monitor BMI and blood pressure regularly",
-                            "Re-assess in 3 months",
-                            "Screen for diabetic symptoms at each visit"
+                            "🩸 Order fasting blood glucose test",
+                            "📋 Lifestyle counseling (diet, exercise, weight)",
+                            "⚖️ Monitor BMI and blood pressure regularly",
+                            "📅 Re-assess in 3 months",
+                            "👁️ Screen for diabetic symptoms at each visit"
                         ]
                     else:
                         next_steps = [
-                            "Continue routine health monitoring",
-                            "Maintain healthy diet and exercise",
-                            "Annual diabetes screening recommended",
-                            "⚖ Monitor weight and blood pressure"
+                            "✅ Continue routine health monitoring",
+                            "🥗 Maintain healthy diet and exercise",
+                            "📅 Annual diabetes screening recommended",
+                            "⚖️ Monitor weight and blood pressure"
                         ]
 
                     if temperature > 38.0 or selected_infection:
-                        next_steps.insert(0, "<strong>URGENT:</strong> Patient shows signs of infection. Consider malaria test, COVID-19 test, or other infection workup.")
+                        next_steps.insert(0, "🌡️ <strong>URGENT:</strong> Patient shows signs of infection. Consider malaria test, COVID-19 test, or other infection workup.")
 
                     next_steps_text = "\n".join([f"{i+1}. {step}" for i, step in enumerate(next_steps)])
 
@@ -773,7 +771,7 @@ elif page == "RIN MEDIC":
                     patient_id = c.lastrowid
                     conn.commit(); conn.close()
 
-                    # FIX: Results display with confidence bar, factors, and next steps
+                    # Results display with confidence bar, factors, and next steps
                     st.markdown("---")
                     st.markdown(f"""
                     <div style="background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%); 
@@ -783,7 +781,6 @@ elif page == "RIN MEDIC":
                             <span style="background: {risk_color}; color: white; padding: 0.4rem 1rem; border-radius: 20px; font-weight: 700;">{risk_prob:.1%} Confidence</span>
                         </div>
 
-                        <!-- FIX: Confidence bar -->
                         <div style="margin: 1rem 0;">
                             <span style="color: #94a3b8; font-size: 0.85rem;">Risk Score</span>
                             <div class="confidence-bar-bg">
@@ -793,9 +790,8 @@ elif page == "RIN MEDIC":
                             </div>
                         </div>
 
-                        <!-- FIX: Main prediction factors -->
                         <div style="margin: 1rem 0;">
-                            <span style="color: #38bdf8; font-size: 0.9rem; font-weight: 600;">Top Factors Influencing This Prediction:</span>
+                            <span style="color: #38bdf8; font-size: 0.9rem; font-weight: 600;">📊 Top Factors Influencing This Prediction:</span>
                             <div style="margin-top: 0.5rem;">
                                 <span class="factor-badge factor-high">Glucose (26%)</span>
                                 <span class="factor-badge factor-medium">BMI (14%)</span>
@@ -805,21 +801,19 @@ elif page == "RIN MEDIC":
                         </div>
 
                         <div class="explanation-box">
-                            <strong style="color: #38bdf8;">RIN AI Clinical Analysis:</strong><br><br>
+                            <strong style="color: #38bdf8;">🧠 RIN AI Clinical Analysis:</strong><br><br>
                             <span style="color: #e2e8f0;">{explanation}</span>
                         </div>
 
-                        <!-- FIX: Recommended Next Steps -->
                         <div class="next-steps-box">
-                            <h4>Recommended Next Steps</h4>
+                            <h4>📋 Recommended Next Steps</h4>
                             <ol style="margin: 0; padding-left: 1.2rem;">
                                 {''.join([f'<li>{step}</li>' for step in next_steps])}
                             </ol>
                         </div>
 
-                        <!-- FIX: Better disclaimer readability -->
                         <div class="disclaimer-box">
-                            <p><strong>IMPORTANT:</strong> This is a clinical decision-support tool only. It does NOT replace professional medical judgment. Always confirm with physical examination, laboratory tests, and qualified healthcare provider assessment before making clinical decisions. Patient ID: #{patient_id}</p>
+                            <p>⚠️ <strong>IMPORTANT:</strong> This is a clinical decision-support tool only. It does NOT replace professional medical judgment. Always confirm with physical examination, laboratory tests, and qualified healthcare provider assessment before making clinical decisions. Patient ID: #{patient_id}</p>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
@@ -828,12 +822,12 @@ elif page == "RIN MEDIC":
                     st.markdown("### Was this assessment helpful?")
                     col_fb1, col_fb2, col_fb3 = st.columns(3)
                     with col_fb1:
-                        if st.button("Yes, helpful", key=f"yes_{patient_id}"):
+                        if st.button("👍 Yes, helpful", key=f"yes_{patient_id}"):
                             conn = get_db_connection(); c = conn.cursor()
                             c.execute("INSERT INTO feedback (patient_id, module, helpful) VALUES (?, ?, ?)", (patient_id, "RIN MEDIC", "Yes"))
                             conn.commit(); conn.close(); st.success("Thank you! Your feedback helps RIN AI learn.")
                     with col_fb2:
-                        if st.button("No, not helpful", key=f"no_{patient_id}"):
+                        if st.button("👎 No, not helpful", key=f"no_{patient_id}"):
                             conn = get_db_connection(); c = conn.cursor()
                             c.execute("INSERT INTO feedback (patient_id, module, helpful) VALUES (?, ?, ?)", (patient_id, "RIN MEDIC", "No"))
                             conn.commit(); conn.close(); st.info("Thank you! We'll use this to improve.")
@@ -845,7 +839,7 @@ elif page == "RIN MEDIC":
                             conn.commit(); conn.close()
 
     with tab2:
-        st.markdown("### Patient Records")
+        st.markdown("### 📋 Patient Records")
         conn = get_db_connection()
         all_patients = pd.read_sql_query("""
             SELECT id, name, age, gender, location, diabetes_risk, risk_score, 
@@ -856,13 +850,13 @@ elif page == "RIN MEDIC":
 
         if len(all_patients) > 0:
             # FIX: Card view for mobile instead of table
-            view_mode = st.radio("View Mode", ["Card View (Mobile Friendly)", "Table View"], horizontal=True)
+            view_mode = st.radio("View Mode", ["📱 Card View (Mobile Friendly)", "📊 Table View"], horizontal=True)
 
-            if view_mode == "Card View (Mobile Friendly)":
+            if view_mode == "📱 Card View (Mobile Friendly)":
                 for _, row in all_patients.iterrows():
                     card_class = "patient-card-high" if row['diabetes_risk']=='HIGH' else "patient-card-medium" if row['diabetes_risk']=='MEDIUM' else "patient-card-low"
                     risk_color = "#ef4444" if row['diabetes_risk']=='HIGH' else "#f59e0b" if row['diabetes_risk']=='MEDIUM' else "#22c55e"
-                    risk_badge = "HIGH" if row['diabetes_risk']=='HIGH' else "MEDIUM" if row['diabetes_risk']=='MEDIUM' else "LOW"
+                    risk_badge = "🔴 HIGH" if row['diabetes_risk']=='HIGH' else "🟡 MEDIUM" if row['diabetes_risk']=='MEDIUM' else "🟢 LOW"
 
                     # FIX: Color-coded abnormal values
                     glucose_class = "abnormal-high" if row['glucose'] > 126 else "abnormal-medium" if row['glucose'] > 100 else "normal-value"
@@ -876,7 +870,7 @@ elif page == "RIN MEDIC":
                             <span style="color: {risk_color}; font-weight: 700; background: rgba(0,0,0,0.3); padding: 0.2rem 0.6rem; border-radius: 20px;">{risk_badge}</span>
                         </div>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.85rem;">
-                            <div><span style="color: #64748b;">Age:</span> <span style="color: #e2e8f0;">{row['age']}y . {row['gender']}</span></div>
+                            <div><span style="color: #64748b;">Age:</span> <span style="color: #e2e8f0;">{row['age']}y · {row['gender']}</span></div>
                             <div><span style="color: #64748b;">Location:</span> <span style="color: #e2e8f0;">{row['location']}</span></div>
                             <div><span style="color: #64748b;">Glucose:</span> <span class="{glucose_class}">{row['glucose']} mg/dL</span></div>
                             <div><span style="color: #64748b;">BP:</span> <span class="{bp_class}">{row['blood_pressure_sys']}/{row['blood_pressure_dia']}</span></div>
@@ -901,7 +895,7 @@ elif page == "RIN MEDIC":
                 st.dataframe(styled_df, use_container_width=True, hide_index=True)
 
             csv = all_patients.to_csv(index=False)
-            st.download_button(label="Download Patient Data (CSV)", data=csv, file_name="rin_medic_patients.csv", mime="text/csv")
+            st.download_button(label="📥 Download Patient Data (CSV)", data=csv, file_name="rin_medic_patients.csv", mime="text/csv")
         else:
             st.info("No patient records found. Add patients using the New Assessment tab.")
 
@@ -909,23 +903,23 @@ elif page == "RIN MEDIC":
 # PAGE: RIN AGRI
 # ═══════════════════════════════════════════════════════════════════════════════
 
-elif page == "RIN AGRI":
-    st.markdown("## RIN AGRI -- Precision Agriculture Intelligence")
+elif page == "🌾 RIN AGRI":
+    st.markdown("## 🌾 RIN AGRI — Precision Agriculture Intelligence")
     st.markdown("""<p style="color: #94a3b8;">AI-powered crop recommendations with <strong>live weather data</strong>. Delivers personalized harvest strategies based on real-time soil, weather, and market data.</p>""", unsafe_allow_html=True)
 
-    with st.expander("Weather API Configuration"):
+    with st.expander("🔧 Weather API Configuration"):
         st.markdown("""<p style="color: #94a3b8;">RIN AGRI can fetch <strong>real-time weather data</strong> from OpenWeatherMap. Without an API key, it uses RIN AI's local weather simulation model.</p>""", unsafe_allow_html=True)
         api_key = st.text_input("OpenWeatherMap API Key (optional)", value=st.session_state.get('weather_api_key', ''), type="password", placeholder="Enter your API key or leave blank for simulation", help="Get a free API key at openweathermap.org/api")
         if api_key:
             st.session_state['weather_api_key'] = api_key
-            st.success("API key saved for this session!")
-        st.markdown("""<p style="color: #64748b; font-size: 0.8rem;"><strong>How to get a free API key:</strong><br>1. Go to <a href="https://openweathermap.org/api" target="_blank">openweathermap.org/api</a><br>2. Sign up (free, no credit card)<br>3. Go to "API Keys" in your account<br>4. Copy the key and paste it above<br>Free tier: 1,000 calls/day (more than enough)</p>""", unsafe_allow_html=True)
+            st.success("✅ API key saved for this session!")
+        st.markdown("""<p style="color: #64748b; font-size: 0.8rem;">💡 <strong>How to get a free API key:</strong><br>1. Go to <a href="https://openweathermap.org/api" target="_blank">openweathermap.org/api</a><br>2. Sign up (free, no credit card)<br>3. Go to "API Keys" in your account<br>4. Copy the key and paste it above<br>Free tier: 1,000 calls/day (more than enough)</p>""", unsafe_allow_html=True)
 
-    tab1, tab2, tab3 = st.tabs(["Crop Recommendation", " Weather Station", "Farm Records"])
+    tab1, tab2, tab3 = st.tabs(["🌱 Crop Recommendation", "🌤️ Weather Station", "📊 Farm Records"])
 
     with tab1:
-        st.markdown("### Get Your Personalized Crop Plan")
-        st.markdown("<p style='color: #64748b; font-size: 0.85rem;'>Fill in all fields below -- no need to press Enter. Click the button at the bottom when done.</p>", unsafe_allow_html=True)
+        st.markdown("### 🌾 Get Your Personalized Crop Plan")
+        st.markdown("<p style='color: #64748b; font-size: 0.85rem;'>Fill all fields below and click the button at the bottom. No need to press Enter.</p>", unsafe_allow_html=True)
 
         # FIX: Wrapped in st.form() so text inputs do NOT require pressing Enter
         with st.form("agri_form", clear_on_submit=False):
@@ -942,60 +936,29 @@ elif page == "RIN AGRI":
                 ph = st.slider("Soil pH Level", 0.0, 14.0, 6.5, step=0.1)
 
             st.markdown("---")
-            use_live_weather = st.checkbox("Use live weather data for the location above", value=True)
+            use_live_weather = st.checkbox("Fetch live weather for location above", value=True)
             if not use_live_weather:
-                temperature_crop = st.slider("Average Temperature ( C)", 10, 45, 25)
+                temperature_crop = st.slider("Average Temperature (°C)", 10, 45, 25)
                 rainfall = st.slider("Average Rainfall (mm)", 0, 300, 100)
 
-            submitted = st.form_submit_button("Generate Crop Recommendation", use_container_width=True)
+            submitted = st.form_submit_button("🌱 Generate Crop Recommendation", use_container_width=True)
 
+        # Process AFTER form submission
         if submitted:
-            weather = None
-            temperature_crop = 25
-            rainfall = 100
-
-            if use_live_weather and farm_location:
-                with st.spinner(f"Fetching weather for {farm_location}..."):
-                    api_key_to_use = st.session_state.get('weather_api_key', None)
-                    weather = get_weather_data(farm_location, api_key_to_use)
-                if weather:
-                    source_color = "#22c55e" if "API" in weather['source'] else "#f59e0b"
-                    st.markdown(f"""<div style="margin-bottom: 0.5rem;"><span style="color: {source_color}; font-size: 0.8rem; font-weight: 600;">* Data Source: {weather['source']}</span></div>""", unsafe_allow_html=True)
-                    wcol1, wcol2, wcol3, wcol4 = st.columns(4)
-                    with wcol1: st.metric("Temperature", f"{weather['temperature']} C", f"Feels {weather['feels_like']} C")
-                    with wcol2: st.metric("Humidity", f"{weather['humidity']}%")
-                    with wcol3: st.metric("Wind", f"{weather['wind_speed']} m/s")
-                    with wcol4: st.metric("Visibility", f"{weather['visibility']} km")
-                    st.markdown(f"""<div class="weather-card"><div style="display: flex; justify-content: space-between; align-items: center;"><div><strong style="color: #38bdf8; font-size: 1.2rem;">{weather['description']}</strong><br><span style="color: #94a3b8;">Pressure: {weather['pressure']} hPa | Clouds: {weather['clouds']}%</span><br><span style="color: #64748b; font-size: 0.8rem;">{weather['sunrise']} | {weather['sunset']}</span></div></div></div>""", unsafe_allow_html=True)
-                    if weather.get('forecast'):
-                        st.markdown("#### 5-Day Forecast")
-                        fcols = st.columns(len(weather['forecast']))
-                        for i, fc in enumerate(weather['forecast']):
-                            with fcols[i]:
-                                rain_icon = "" if fc['rain'] > 5 else "" if fc['rain'] > 0 else "☀"
-                                st.markdown(f"""<div style="background: #1e293b; padding: 0.6rem; border-radius: 8px; text-align: center; border: 1px solid rgba(56, 189, 248, 0.1);"><div style="font-size: 0.75rem; color: #94a3b8;">{fc['date'][5:]}</div><div style="font-size: 1.5rem; margin: 0.2rem 0;">{rain_icon}</div><div style="font-size: 0.9rem; color: white; font-weight: 600;">{fc['temp_max']}  / {fc['temp_min']} </div><div style="font-size: 0.65rem; color: #64748b;">{fc['rain']}mm rain</div></div>""", unsafe_allow_html=True)
-                    temperature_crop = weather['temperature']
-                    rainfall = weather.get('rainfall', 100)
-                    st.markdown(f"""<div style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); padding: 0.8rem; border-radius: 8px; margin-bottom: 1rem;"><strong style="color: #22c55e;">Auto-detected from weather data:</strong><br><span style="color: #e2e8f0;">Temperature: {temperature_crop} C | Rainfall estimate: {rainfall}mm</span></div>""", unsafe_allow_html=True)
-                else:
-                    st.warning("Could not fetch weather. Using default temperature (25 C) and rainfall (100mm).")
-            elif use_live_weather and not farm_location:
-                st.warning("No farm location provided. Using default temperature (25 C) and rainfall (100mm).")
-
             with st.spinner("RIN AI is analyzing soil, weather, and market data..."):
                 recommendations = []
                 temp_factor = temperature_crop
                 rain_factor = rainfall
                 if soil_type in ["Loamy", "Silty"] and ph >= 6.0 and ph <= 7.5:
                     if rain_factor > 80 and temp_factor >= 20 and temp_factor <= 30:
-                        recommendations.append({"crop": "Maize", "confidence": 92, "reason": f"Loamy soil with good pH. Current temp {temp_factor} C and rainfall {rain_factor}mm ideal for maize.", "planting": "Next 2 weeks" if weather and weather.get('forecast') and weather['forecast'][0].get('rain', 0) < 10 else "Wait for dry spell", "harvest": "3-4 months", "yield": f"~{farm_size * 3.5:.1f} tonnes", "market_price": "Good -- stable demand"})
-                        recommendations.append({"crop": "Beans", "confidence": 85, "reason": "Nitrogen-fixing crop, improves soil for next season. Good market price.", "planting": "Now", "harvest": "2-3 months", "yield": f"~{farm_size * 1.2:.1f} tonnes", "market_price": "Excellent -- high demand"})
+                        recommendations.append({"crop": "Maize", "confidence": 92, "reason": f"Loamy soil with good pH. Current temp {temp_factor}°C and rainfall {rain_factor}mm ideal for maize.", "planting": "Next 2 weeks" if weather and weather.get('forecast') and weather['forecast'][0].get('rain', 0) < 10 else "Wait for dry spell", "harvest": "3-4 months", "yield": f"~{farm_size * 3.5:.1f} tonnes", "market_price": "Good — stable demand"})
+                        recommendations.append({"crop": "Beans", "confidence": 85, "reason": "Nitrogen-fixing crop, improves soil for next season. Good market price.", "planting": "Now", "harvest": "2-3 months", "yield": f"~{farm_size * 1.2:.1f} tonnes", "market_price": "Excellent — high demand"})
                 if nitrogen > 80 and phosphorus > 40 and potassium > 40:
-                    recommendations.append({"crop": "Rice", "confidence": 88, "reason": "High nutrient soil supports rice. Ensure water management.", "planting": "After next rainfall", "harvest": "4-5 months", "yield": f"~{farm_size * 4.0:.1f} tonnes", "market_price": "Stable -- local staple"})
+                    recommendations.append({"crop": "Rice", "confidence": 88, "reason": "High nutrient soil supports rice. Ensure water management.", "planting": "After next rainfall", "harvest": "4-5 months", "yield": f"~{farm_size * 4.0:.1f} tonnes", "market_price": "Stable — local staple"})
                 if temp_factor > 28 and rain_factor < 100:
-                    recommendations.append({"crop": "Cassava", "confidence": 90, "reason": f"Drought-resistant, thrives in warm {temp_factor} C temperatures. Low water needs.", "planting": "Anytime", "harvest": "8-12 months", "yield": f"~{farm_size * 15:.1f} tonnes", "market_price": "Growing -- industrial demand"})
+                    recommendations.append({"crop": "Cassava", "confidence": 90, "reason": f"Drought-resistant, thrives in warm {temp_factor}°C temperatures. Low water needs.", "planting": "Anytime", "harvest": "8-12 months", "yield": f"~{farm_size * 15:.1f} tonnes", "market_price": "Growing — industrial demand"})
                 if ph < 5.5:
-                    recommendations.append({"crop": "Groundnuts (Peanuts)", "confidence": 82, "reason": "Tolerates slightly acidic soil. Good nitrogen fixer.", "planting": "After soil lime treatment", "harvest": "4-5 months", "yield": f"~{farm_size * 1.5:.1f} tonnes", "market_price": "Good -- export potential"})
+                    recommendations.append({"crop": "Groundnuts (Peanuts)", "confidence": 82, "reason": "Tolerates slightly acidic soil. Good nitrogen fixer.", "planting": "After soil lime treatment", "harvest": "4-5 months", "yield": f"~{farm_size * 1.5:.1f} tonnes", "market_price": "Good — export potential"})
                 if not recommendations:
                     recommendations.append({"crop": "Sorghum", "confidence": 75, "reason": "Hardy crop that tolerates variable conditions. Good starting point.", "planting": "Next rainfall", "harvest": "3-4 months", "yield": f"~{farm_size * 2.0:.1f} tonnes", "market_price": "Stable"})
                 weather_json = json.dumps(weather) if weather else "{}"
@@ -1005,20 +968,19 @@ elif page == "RIN AGRI":
                     (farmer_name, farm_location, farm_size, soil_type, nitrogen, phosphorus, potassium, ph, recommendations[0]['crop'], recommendations[0]['confidence'], weather_json))
                 conn.commit(); conn.close()
                 st.markdown("---")
-                st.markdown("### RIN AI Crop Recommendations")
+                st.markdown("### 🎯 RIN AI Crop Recommendations")
                 for i, rec in enumerate(recommendations[:3]):
                     confidence_color = "#22c55e" if rec['confidence'] >= 90 else "#f59e0b" if rec['confidence'] >= 80 else "#38bdf8"
-                    st.markdown(f"""<div class="module-card"><div style="display: flex; justify-content: space-between; align-items: center;"><h3 style="color: white; margin: 0;">#{i+1} {rec['crop']}</h3><span style="background: {confidence_color}; color: white; padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.85rem; font-weight: 600;">{rec['confidence']}% Match</span></div><p style="color: #94a3b8; margin: 0.5rem 0;">{rec['reason']}</p><div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;"><div style="background: rgba(56, 189, 248, 0.1); padding: 0.8rem; border-radius: 8px;"><strong style="color: #38bdf8;">Best Planting Time</strong><br><span style="color: #e2e8f0;">{rec['planting']}</span></div><div style="background: rgba(34, 197, 94, 0.1); padding: 0.8rem; border-radius: 8px;"><strong style="color: #22c55e;">Expected Harvest</strong><br><span style="color: #e2e8f0;">{rec['harvest']} . {rec['yield']}</span></div><div style="background: rgba(245, 158, 11, 0.1); padding: 0.8rem; border-radius: 8px;"><strong style="color: #f59e0b;">Market Outlook</strong><br><span style="color: #e2e8f0;">{rec['market_price']}</span></div><div style="background: rgba(239, 68, 68, 0.1); padding: 0.8rem; border-radius: 8px;"><strong style="color: #ef4444;">Risk Factor</strong><br><span style="color: #e2e8f0;">Monitor rainfall closely</span></div></div></div>""", unsafe_allow_html=True)
-                st.markdown("### Your Action Plan")
-                st.markdown("""<div style="background: #1e293b; padding: 1.5rem; border-radius: 12px; border: 1px solid rgba(56, 189, 248, 0.2);"><ol style="color: #e2e8f0; line-height: 2;"><li><strong>Test soil pH</strong> -- If below 6.0, consider lime treatment before planting</li><li><strong>Check seed quality</strong> -- Use certified seeds for best yield</li><li><strong>Plan irrigation</strong> -- Ensure water access during dry spells</li><li><strong>Monitor weekly</strong> -- Log pest sightings and growth progress in RIN AI</li><li><strong>Connect with buyers</strong> -- Contact local cooperative before harvest</li></ol></div>""", unsafe_allow_html=True)
-
+                    st.markdown(f"""<div class="module-card"><div style="display: flex; justify-content: space-between; align-items: center;"><h3 style="color: white; margin: 0;">#{i+1} {rec['crop']}</h3><span style="background: {confidence_color}; color: white; padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.85rem; font-weight: 600;">{rec['confidence']}% Match</span></div><p style="color: #94a3b8; margin: 0.5rem 0;">{rec['reason']}</p><div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;"><div style="background: rgba(56, 189, 248, 0.1); padding: 0.8rem; border-radius: 8px;"><strong style="color: #38bdf8;">🌱 Best Planting Time</strong><br><span style="color: #e2e8f0;">{rec['planting']}</span></div><div style="background: rgba(34, 197, 94, 0.1); padding: 0.8rem; border-radius: 8px;"><strong style="color: #22c55e;">🌾 Expected Harvest</strong><br><span style="color: #e2e8f0;">{rec['harvest']} · {rec['yield']}</span></div><div style="background: rgba(245, 158, 11, 0.1); padding: 0.8rem; border-radius: 8px;"><strong style="color: #f59e0b;">💰 Market Outlook</strong><br><span style="color: #e2e8f0;">{rec['market_price']}</span></div><div style="background: rgba(239, 68, 68, 0.1); padding: 0.8rem; border-radius: 8px;"><strong style="color: #ef4444;">⚠️ Risk Factor</strong><br><span style="color: #e2e8f0;">Monitor rainfall closely</span></div></div></div>""", unsafe_allow_html=True)
+                st.markdown("### 📋 Your Action Plan")
+                st.markdown("""<div style="background: #1e293b; padding: 1.5rem; border-radius: 12px; border: 1px solid rgba(56, 189, 248, 0.2);"><ol style="color: #e2e8f0; line-height: 2;"><li><strong>Test soil pH</strong> — If below 6.0, consider lime treatment before planting</li><li><strong>Check seed quality</strong> — Use certified seeds for best yield</li><li><strong>Plan irrigation</strong> — Ensure water access during dry spells</li><li><strong>Monitor weekly</strong> — Log pest sightings and growth progress in RIN AI</li><li><strong>Connect with buyers</strong> — Contact local cooperative before harvest</li></ol></div>""", unsafe_allow_html=True)
 
     with tab2:
-        st.markdown("###  Weather Station")
+        st.markdown("### 🌤️ Weather Station")
         st.markdown("""<p style="color: #94a3b8;">Check live weather for any location. Enter a city or village name below.</p>""", unsafe_allow_html=True)
         with st.form("weather_form", clear_on_submit=False):
             weather_query = st.text_input("Enter Location", placeholder="e.g., Bamenda, Douala, Yaounde")
-            submitted_weather = st.form_submit_button("Check Weather", use_container_width=True)
+            submitted_weather = st.form_submit_button("🌤️ Check Weather", use_container_width=True)
         if submitted_weather and weather_query:
             with st.spinner(f"Fetching weather for {weather_query}..."):
                 api_key_to_use = st.session_state.get('weather_api_key', None)
@@ -1026,117 +988,117 @@ elif page == "RIN AGRI":
             if weather_data:
                 source_color = "#22c55e" if "API" in weather_data['source'] else "#f59e0b"
                 st.markdown(f"""<div style="margin-bottom: 1rem;"><span style="color: {source_color}; font-size: 0.9rem; font-weight: 600;">* {weather_data['source']}</span></div>""", unsafe_allow_html=True)
-                st.markdown(f"""<div class="weather-card"><div style="display: flex; justify-content: space-between; align-items: center;"><div><h2 style="color: white; margin: 0; font-size: 3rem;">{weather_data['temperature']} C</h2><p style="color: #38bdf8; font-size: 1.2rem; margin: 0;">{weather_data['description']}</p><p style="color: #94a3b8; margin: 0;">Feels like {weather_data['feels_like']} C</p></div><div style="text-align: right;"><p style="color: #94a3b8; margin: 0;">Humidity: {weather_data['humidity']}%</p><p style="color: #94a3b8; margin: 0;">Wind: {weather_data['wind_speed']} m/s</p><p style="color: #94a3b8; margin: 0;">Visibility: {weather_data['visibility']} km</p><p style="color: #64748b; margin: 0; font-size: 0.8rem;">{weather_data['sunrise']} | {weather_data['sunset']}</p></div></div></div>""", unsafe_allow_html=True)
+                st.markdown(f"""<div class="weather-card"><div style="display: flex; justify-content: space-between; align-items: center;"><div><h2 style="color: white; margin: 0; font-size: 3rem;">{weather_data['temperature']}°C</h2><p style="color: #38bdf8; font-size: 1.2rem; margin: 0;">{weather_data['description']}</p><p style="color: #94a3b8; margin: 0;">Feels like {weather_data['feels_like']}°C</p></div><div style="text-align: right;"><p style="color: #94a3b8; margin: 0;">💧 Humidity: {weather_data['humidity']}%</p><p style="color: #94a3b8; margin: 0;">💨 Wind: {weather_data['wind_speed']} m/s</p><p style="color: #94a3b8; margin: 0;">👁️ Visibility: {weather_data['visibility']} km</p><p style="color: #64748b; margin: 0; font-size: 0.8rem;">🌅 {weather_data['sunrise']} | 🌇 {weather_data['sunset']}</p></div></div></div>""", unsafe_allow_html=True)
                 if weather_data.get('forecast'):
-                    st.markdown("#### 5-Day Forecast")
+                    st.markdown("#### 📅 5-Day Forecast")
                     for fc in weather_data['forecast']:
-                        rain_icon = "" if fc['rain'] > 5 else "" if fc['rain'] > 0 else "☀"
-                        st.markdown(f"""<div class="forecast-row"><div style="display: flex; justify-content: space-between; align-items: center;"><div style="display: flex; align-items: center; gap: 1rem;"><span style="font-size: 1.5rem;">{rain_icon}</span><div><strong style="color: white;">{fc['date']}</strong><br><span style="color: #94a3b8;">{fc['description']}</span></div></div><div style="text-align: right;"><strong style="color: #38bdf8;">{fc['temp_max']} C</strong> / <span style="color: #64748b;">{fc['temp_min']} C</span><br><span style="color: #94a3b8; font-size: 0.8rem;">{fc['rain']}mm expected</span></div></div></div>""", unsafe_allow_html=True)
+                        rain_icon = "🌧️" if fc['rain'] > 5 else "🌦️" if fc['rain'] > 0 else "☀️"
+                        st.markdown(f"""<div class="forecast-row"><div style="display: flex; justify-content: space-between; align-items: center;"><div style="display: flex; align-items: center; gap: 1rem;"><span style="font-size: 1.5rem;">{rain_icon}</span><div><strong style="color: white;">{fc['date']}</strong><br><span style="color: #94a3b8;">{fc['description']}</span></div></div><div style="text-align: right;"><strong style="color: #38bdf8;">{fc['temp_max']}°C</strong> / <span style="color: #64748b;">{fc['temp_min']}°C</span><br><span style="color: #94a3b8; font-size: 0.8rem;">🌧️ {fc['rain']}mm expected</span></div></div></div>""", unsafe_allow_html=True)
             else: st.error("Could not fetch weather data. Please check the location name.")
         elif submitted_weather and not weather_query:
-            st.warning("Please enter a location first.")
+            st.warning("⚠️ Please enter a location first.")
 
     with tab3:
-        st.markdown("### Farm Records")
+        st.markdown("### 📊 Farm Records")
         conn = get_db_connection()
         farms = pd.read_sql_query("SELECT farmer_name, farm_location, farm_size, soil_type, recommended_crop, confidence, created_at FROM farm_records ORDER BY created_at DESC", conn)
         conn.close()
         if len(farms) > 0:
             st.dataframe(farms, use_container_width=True, hide_index=True)
             csv = farms.to_csv(index=False)
-            st.download_button("Download Farm Records (CSV)", csv, "rin_farm_records.csv", "text/csv")
+            st.download_button("📥 Download Farm Records (CSV)", csv, "rin_farm_records.csv", "text/csv")
         else: st.info("No farm assessments yet. Use the Crop Recommendation tab to add your first farm.")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # PAGE: SETTINGS
 # ═══════════════════════════════════════════════════════════════════════════════
 
-elif page == "⚙ Settings":
-    st.markdown("## ⚙ RIN AI System Settings")
+elif page == "⚙️ Settings":
+    st.markdown("## ⚙️ RIN AI System Settings")
 
-    st.markdown("### Model Configuration")
+    st.markdown("### 🧠 Model Configuration")
     st.markdown(f"""<div class="module-card"><p><strong>Diabetes Prediction Model:</strong> Random Forest Classifier</p><p><strong>Model Accuracy:</strong> {model_accuracy:.1%}</p><p><strong>Features Used:</strong> {', '.join(feature_names)}</p><p><strong>Training Data:</strong> 2,000 synthetic samples (African demographic profile)</p><p><strong>Last Updated:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p></div>""", unsafe_allow_html=True)
 
-    st.markdown("###  Weather API Configuration")
+    st.markdown("### 🌤️ Weather API Configuration")
     st.markdown("""<div class="module-card"><p><strong>Provider:</strong> OpenWeatherMap</p><p><strong>Endpoint:</strong> https://api.openweathermap.org/data/2.5/</p><p><strong>Free Tier:</strong> 1,000 calls/day</p><p><strong>Fallback:</strong> RIN AI Local Weather Simulation Model</p><p><strong>Cache Duration:</strong> 1 hour</p></div>""", unsafe_allow_html=True)
 
-    st.markdown("###  Database Management")
+    st.markdown("### 🗄️ Database Management")
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        if st.button("Clear Patients", use_container_width=True):
+        if st.button("🗑️ Clear Patients", use_container_width=True):
             conn = get_db_connection(); c = conn.cursor(); c.execute("DELETE FROM patients"); conn.commit(); conn.close(); st.success("All patient records cleared."); st.rerun()
     with col2:
-        if st.button("Clear Alerts", use_container_width=True):
+        if st.button("🗑️ Clear Alerts", use_container_width=True):
             conn = get_db_connection(); c = conn.cursor(); c.execute("DELETE FROM alerts"); conn.commit(); conn.close(); st.success("All alerts cleared."); st.rerun()
     with col3:
-        if st.button("Clear Feedback", use_container_width=True):
+        if st.button("🗑️ Clear Feedback", use_container_width=True):
             conn = get_db_connection(); c = conn.cursor(); c.execute("DELETE FROM feedback"); conn.commit(); conn.close(); st.success("All feedback cleared."); st.rerun()
     with col4:
-        if st.button("Clear Farms", use_container_width=True):
+        if st.button("🗑️ Clear Farms", use_container_width=True):
             conn = get_db_connection(); c = conn.cursor(); c.execute("DELETE FROM farm_records"); conn.commit(); conn.close(); st.success("All farm records cleared."); st.rerun()
 
     st.markdown("---")
-    st.markdown("### Export Data")
+    st.markdown("### 📤 Export Data")
     conn = get_db_connection()
     patients_df = pd.read_sql_query("SELECT * FROM patients", conn)
     if len(patients_df) > 0:
         csv_patients = patients_df.to_csv(index=False)
-        st.download_button("Export Patients (CSV)", csv_patients, "rin_patients.csv", "text/csv")
+        st.download_button("📥 Export Patients (CSV)", csv_patients, "rin_patients.csv", "text/csv")
     alerts_df = pd.read_sql_query("SELECT * FROM alerts", conn)
     if len(alerts_df) > 0:
         csv_alerts = alerts_df.to_csv(index=False)
-        st.download_button("Export Alerts (CSV)", csv_alerts, "rin_alerts.csv", "text/csv")
+        st.download_button("📥 Export Alerts (CSV)", csv_alerts, "rin_alerts.csv", "text/csv")
     feedback_df = pd.read_sql_query("SELECT * FROM feedback", conn)
     if len(feedback_df) > 0:
         csv_feedback = feedback_df.to_csv(index=False)
-        st.download_button("Export Feedback (CSV)", csv_feedback, "rin_feedback.csv", "text/csv")
+        st.download_button("📥 Export Feedback (CSV)", csv_feedback, "rin_feedback.csv", "text/csv")
     farms_df = pd.read_sql_query("SELECT * FROM farm_records", conn)
     if len(farms_df) > 0:
         csv_farms = farms_df.to_csv(index=False)
-        st.download_button("Export Farm Records (CSV)", csv_farms, "rin_farms.csv", "text/csv")
+        st.download_button("📥 Export Farm Records (CSV)", csv_farms, "rin_farms.csv", "text/csv")
     conn.close()
 
     st.markdown("---")
-    st.markdown("### About RIN AI")
-    st.markdown(f"""<div class="module-card"><h3 style="color: #38bdf8;">RIN AI v1.2 -- GAIOS Platform</h3><p><strong>Founder:</strong> Mark Rinwi Bonzum</p><p><strong>Location:</strong> Bamenda, Cameroon</p><p><strong>Mission:</strong> Build the intelligence layer that makes humanity permanently more capable, more equitable, and more resilient.</p><p><strong>Active Modules:</strong> RIN MEDIC, RIN AGRI (with live weather)</p><p><strong>Future Modules:</strong> RIN GRID, RIN GOV, RIN EDU</p><p><strong>Core Principles:</strong></p><ul><li>Humans are always in control</li><li>Works even with poor internet</li><li>Explains everything it does</li><li>Never stops learning</li></ul><p style="color: #64748b; font-size: 0.8rem; margin-top: 1rem;">Built with Python, Streamlit, scikit-learn, SQLite, Plotly, and OpenWeatherMap API. All data stored locally.</p></div>""", unsafe_allow_html=True)
+    st.markdown("### ℹ️ About RIN AI")
+    st.markdown(f"""<div class="module-card"><h3 style="color: #38bdf8;">RIN AI v1.2 — GAIOS Platform</h3><p><strong>Founder:</strong> Mark Rinwi Bonzum</p><p><strong>Location:</strong> Bamenda, Cameroon</p><p><strong>Mission:</strong> Build the intelligence layer that makes humanity permanently more capable, more equitable, and more resilient.</p><p><strong>Active Modules:</strong> RIN MEDIC, RIN AGRI (with live weather)</p><p><strong>Future Modules:</strong> RIN GRID, RIN GOV, RIN EDU</p><p><strong>Core Principles:</strong></p><ul><li>Humans are always in control</li><li>Works even with poor internet</li><li>Explains everything it does</li><li>Never stops learning</li></ul><p style="color: #64748b; font-size: 0.8rem; margin-top: 1rem;">Built with Python, Streamlit, scikit-learn, SQLite, Plotly, and OpenWeatherMap API. All data stored locally.</p></div>""", unsafe_allow_html=True)
 
     st.markdown("---")
-    st.markdown("### Changelog")
+    st.markdown("### 📝 Changelog")
     st.markdown("""
     <div class="module-card">
-        <p><strong>v1.2</strong> -- User Feedback Update (July 2026)</p>
+        <p><strong>v1.2</strong> — User Feedback Update (July 2026)</p>
         <ul style="color: #94a3b8;">
-            <li>Added Home page with visible module cards</li>
-            <li>Auto-calculate BMI from height and weight</li>
-            <li>Multi-select symptom list (replaced free text)</li>
-            <li>Fixed AI explanation -- fever no longer linked to diabetes risk</li>
-            <li>Added confidence bar on results</li>
-            <li>Added "Top Factors Influencing Prediction" badges</li>
-            <li>Added "Recommended Next Steps" section</li>
-            <li>Added color-coded reference ranges</li>
-            <li>Added mobile-friendly card view for patient records</li>
-            <li>Color-coded abnormal values (glucose, BP, BMI)</li>
-            <li>Fixed disclaimer readability</li>
-            <li>Hidden default Streamlit UI elements</li>
-            <li>Fixed active tab color (blue instead of red)</li>
+            <li>✅ Added Home page with visible module cards</li>
+            <li>✅ Auto-calculate BMI from height and weight</li>
+            <li>✅ Multi-select symptom list (replaced free text)</li>
+            <li>✅ Fixed AI explanation — fever no longer linked to diabetes risk</li>
+            <li>✅ Added confidence bar on results</li>
+            <li>✅ Added "Top Factors Influencing Prediction" badges</li>
+            <li>✅ Added "Recommended Next Steps" section</li>
+            <li>✅ Added color-coded reference ranges</li>
+            <li>✅ Added mobile-friendly card view for patient records</li>
+            <li>✅ Color-coded abnormal values (glucose, BP, BMI)</li>
+            <li>✅ Fixed disclaimer readability</li>
+            <li>✅ Hidden default Streamlit UI elements</li>
+            <li>✅ Fixed active tab color (blue instead of red)</li>
         </ul>
-        <p><strong>v1.1</strong> -- Weather API Integration</p>
+        <p><strong>v1.1</strong> — Weather API Integration</p>
         <ul style="color: #94a3b8;">
-            <li>OpenWeatherMap API integration</li>
-            <li>5-day weather forecast</li>
-            <li>Weather caching</li>
-            <li>Farm records database</li>
+            <li>✅ OpenWeatherMap API integration</li>
+            <li>✅ 5-day weather forecast</li>
+            <li>✅ Weather caching</li>
+            <li>✅ Farm records database</li>
         </ul>
-        <p><strong>v1.0</strong> -- Initial Release</p>
+        <p><strong>v1.0</strong> — Initial Release</p>
         <ul style="color: #94a3b8;">
-            <li>RIN MEDIC prototype</li>
-            <li>RIN AGRI prototype</li>
-            <li>Outbreak detection</li>
-            <li>Patient database</li>
+            <li>✅ RIN MEDIC prototype</li>
+            <li>✅ RIN AGRI prototype</li>
+            <li>✅ Outbreak detection</li>
+            <li>✅ Patient database</li>
         </ul>
     </div>
     """, unsafe_allow_html=True)
 
 # FOOTER
 st.markdown("---")
-st.markdown("""<div style="text-align: center; padding: 1rem; color: #64748b; font-size: 0.8rem;"><p><strong>RIN AI</strong> -- Global Autonomous Intelligence Platform . v1.2</p><p>Founded by Mark Rinwi Bonzum . Bamenda, Cameroon . 2026</p><p style="color: #38bdf8;">Collect -> Clean -> Understand -> Connect -> Act -> Learn -> Repeat</p></div>""", unsafe_allow_html=True)
+st.markdown("""<div style="text-align: center; padding: 1rem; color: #64748b; font-size: 0.8rem;"><p>🧠 <strong>RIN AI</strong> — Global Autonomous Intelligence Platform · v1.2</p><p>Founded by Mark Rinwi Bonzum · Bamenda, Cameroon · 2026</p><p style="color: #38bdf8;">Collect → Clean → Understand → Connect → Act → Learn → Repeat</p></div>""", unsafe_allow_html=True)
