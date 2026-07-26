@@ -771,52 +771,38 @@ elif page == "🏥 RIN MEDIC":
                     patient_id = c.lastrowid
                     conn.commit(); conn.close()
 
-                    # Results display with confidence bar, factors, and next steps
+                    # Results display using native Streamlit components (more reliable)
                     st.markdown("---")
-                    st.markdown(f"""
-                    <div style="background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%); 
-                                padding: 2rem; border-radius: 16px; border: 2px solid {risk_color};">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                            <h2 style="color: {risk_color}; margin: 0;">{risk_icon} Diabetes Risk: {risk_level}</h2>
-                            <span style="background: {risk_color}; color: white; padding: 0.4rem 1rem; border-radius: 20px; font-weight: 700;">{risk_prob:.1%} Confidence</span>
-                        </div>
 
-                        <div style="margin: 1rem 0;">
-                            <span style="color: #94a3b8; font-size: 0.85rem;">Risk Score</span>
-                            <div class="confidence-bar-bg">
-                                <div class="confidence-bar-fill" style="width: {risk_prob*100}%; background: {risk_color};">
-                                    {risk_prob:.0%}
-                                </div>
-                            </div>
-                        </div>
+                    # Risk level header
+                    st.markdown(f"## {risk_icon} Diabetes Risk: {risk_level}")
+                    st.markdown(f"**Confidence:** {risk_prob:.1%}")
 
-                        <div style="margin: 1rem 0;">
-                            <span style="color: #38bdf8; font-size: 0.9rem; font-weight: 600;">📊 Top Factors Influencing This Prediction:</span>
-                            <div style="margin-top: 0.5rem;">
-                                <span class="factor-badge factor-high">Glucose (26%)</span>
-                                <span class="factor-badge factor-medium">BMI (14%)</span>
-                                <span class="factor-badge factor-medium">Age (12%)</span>
-                                <span class="factor-badge factor-low">Blood Pressure (12%)</span>
-                            </div>
-                        </div>
+                    # Confidence bar using native progress
+                    st.progress(min(int(risk_prob * 100), 100), text=f"Risk Score: {risk_prob:.0%}")
 
-                        <div class="explanation-box">
-                            <strong style="color: #38bdf8;">🧠 RIN AI Clinical Analysis:</strong><br><br>
-                            <span style="color: #e2e8f0;">{explanation}</span>
-                        </div>
+                    # Top factors
+                    st.markdown("**📊 Top Factors Influencing This Prediction:**")
+                    factor_cols = st.columns(4)
+                    factors = [("Glucose", "26%", "high"), ("BMI", "14%", "medium"), ("Age", "12%", "medium"), ("Blood Pressure", "12%", "low")]
+                    for col, (name, pct, level) in zip(factor_cols, factors):
+                        color = {"high": "#ef4444", "medium": "#f59e0b", "low": "#22c55e"}[level]
+                        col.markdown(f"<span style='background: {color}33; color: {color}; padding: 0.3rem 0.7rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600;'>{name} ({pct})</span>", unsafe_allow_html=True)
 
-                        <div class="next-steps-box">
-                            <h4>📋 Recommended Next Steps</h4>
-                            <ol style="margin: 0; padding-left: 1.2rem;">
-                                {''.join([f'<li>{step}</li>' for step in next_steps])}
-                            </ol>
-                        </div>
+                    # Clinical analysis
+                    st.markdown("---")
+                    st.markdown("**🧠 RIN AI Clinical Analysis:**")
+                    st.markdown(explanation, unsafe_allow_html=True)
 
-                        <div class="disclaimer-box">
-                            <p>⚠️ <strong>IMPORTANT:</strong> This is a clinical decision-support tool only. It does NOT replace professional medical judgment. Always confirm with physical examination, laboratory tests, and qualified healthcare provider assessment before making clinical decisions. Patient ID: #{patient_id}</p>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    # Next steps
+                    st.markdown("---")
+                    st.markdown("**📋 Recommended Next Steps:**")
+                    for i, step in enumerate(next_steps, 1):
+                        st.markdown(f"{i}. {step}")
+
+                    # Disclaimer
+                    st.markdown("---")
+                    st.warning(f"⚠️ **IMPORTANT:** This is a clinical decision-support tool only. It does NOT replace professional medical judgment. Always confirm with physical examination, laboratory tests, and qualified healthcare provider assessment before making clinical decisions. **Patient ID: #{patient_id}**")
 
                     # FIX: Feedback buttons
                     st.markdown("### Was this assessment helpful?")
@@ -971,9 +957,36 @@ elif page == "🌾 RIN AGRI":
                 st.markdown("### 🎯 RIN AI Crop Recommendations")
                 for i, rec in enumerate(recommendations[:3]):
                     confidence_color = "#22c55e" if rec['confidence'] >= 90 else "#f59e0b" if rec['confidence'] >= 80 else "#38bdf8"
-                    st.markdown(f"""<div class="module-card"><div style="display: flex; justify-content: space-between; align-items: center;"><h3 style="color: white; margin: 0;">#{i+1} {rec['crop']}</h3><span style="background: {confidence_color}; color: white; padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.85rem; font-weight: 600;">{rec['confidence']}% Match</span></div><p style="color: #94a3b8; margin: 0.5rem 0;">{rec['reason']}</p><div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;"><div style="background: rgba(56, 189, 248, 0.1); padding: 0.8rem; border-radius: 8px;"><strong style="color: #38bdf8;">🌱 Best Planting Time</strong><br><span style="color: #e2e8f0;">{rec['planting']}</span></div><div style="background: rgba(34, 197, 94, 0.1); padding: 0.8rem; border-radius: 8px;"><strong style="color: #22c55e;">🌾 Expected Harvest</strong><br><span style="color: #e2e8f0;">{rec['harvest']} · {rec['yield']}</span></div><div style="background: rgba(245, 158, 11, 0.1); padding: 0.8rem; border-radius: 8px;"><strong style="color: #f59e0b;">💰 Market Outlook</strong><br><span style="color: #e2e8f0;">{rec['market_price']}</span></div><div style="background: rgba(239, 68, 68, 0.1); padding: 0.8rem; border-radius: 8px;"><strong style="color: #ef4444;">⚠️ Risk Factor</strong><br><span style="color: #e2e8f0;">Monitor rainfall closely</span></div></div></div>""", unsafe_allow_html=True)
+                    with st.container(border=True):
+                        c1, c2 = st.columns([3, 1])
+                        with c1:
+                            st.markdown(f"**#{i+1} {rec['crop']}**")
+                        with c2:
+                            st.markdown(f"<span style='background: {confidence_color}; color: white; padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.85rem; font-weight: 600;'>{rec['confidence']}% Match</span>", unsafe_allow_html=True)
+                        st.markdown(f"*{rec['reason']}*")
+                        c3, c4, c5, c6 = st.columns(4)
+                        with c3:
+                            st.markdown(f"**🌱 Planting**  ")
+                            st.markdown(f"{rec['planting']}")
+                        with c4:
+                            st.markdown(f"**🌾 Harvest**  ")
+                            st.markdown(f"{rec['harvest']} | {rec['yield']}")
+                        with c5:
+                            st.markdown(f"**💰 Market**  ")
+                            st.markdown(f"{rec['market_price']}")
+                        with c6:
+                            st.markdown(f"**⚠️ Risk**  ")
+                            st.markdown("Monitor rainfall")
                 st.markdown("### 📋 Your Action Plan")
-                st.markdown("""<div style="background: #1e293b; padding: 1.5rem; border-radius: 12px; border: 1px solid rgba(56, 189, 248, 0.2);"><ol style="color: #e2e8f0; line-height: 2;"><li><strong>Test soil pH</strong> — If below 6.0, consider lime treatment before planting</li><li><strong>Check seed quality</strong> — Use certified seeds for best yield</li><li><strong>Plan irrigation</strong> — Ensure water access during dry spells</li><li><strong>Monitor weekly</strong> — Log pest sightings and growth progress in RIN AI</li><li><strong>Connect with buyers</strong> — Contact local cooperative before harvest</li></ol></div>""", unsafe_allow_html=True)
+                action_items = [
+                    "Test soil pH — If below 6.0, consider lime treatment before planting",
+                    "Check seed quality — Use certified seeds for best yield",
+                    "Plan irrigation — Ensure water access during dry spells",
+                    "Monitor weekly — Log pest sightings and growth progress in RIN AI",
+                    "Connect with buyers — Contact local cooperative before harvest"
+                ]
+                for item in action_items:
+                    st.markdown(f"- {item}")
 
     with tab2:
         st.markdown("### 🌤️ Weather Station")
