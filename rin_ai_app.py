@@ -418,7 +418,7 @@ if 'navigate_to' in st.session_state:
     page = st.session_state.pop('navigate_to')
 else:
     page = st.radio("Navigate",
-        [" Home", "RIN MEDIC", "RIN AGRI", "Analytics", "⚙️ Settings"],
+        [" Home", "RIN MEDIC", "RIN AGRI", "Analytics", "⚙ Settings"],
         label_visibility="collapsed")
     st.markdown("---")
     st.markdown("### System Status")
@@ -539,7 +539,7 @@ elif page == "Analytics":
             st.plotly_chart(fig, use_container_width=True)
         else: st.info("No data yet. Add patients to see trends.")
     with col2:
-        st.markdown("### ️ Cases by Location")
+        st.markdown("###  Cases by Location")
         if len(location_dist) > 0:
             import plotly.express as px
             fig = px.bar(location_dist, x='location', y='count', labels={'location': 'Location', 'count': 'Cases'}, color='count', color_continuous_scale='Blues')
@@ -650,7 +650,7 @@ elif page == "RIN MEDIC":
             """, unsafe_allow_html=True)
 
             st.markdown("---")
-            submitted = st.form_submit_button(" RUN AI RISK ASSESSMENT", use_container_width=True, type="primary")
+            submitted = st.form_submit_button("RUN AI RISK ASSESSMENT", use_container_width=True, type="primary")
 
         # Values computed from form data (available after submit)
         symptoms_text = ", ".join(selected_symptoms) if selected_symptoms else "None reported"
@@ -743,7 +743,7 @@ elif page == "RIN MEDIC":
                         next_steps = [
                             "Order fasting blood glucose test",
                             "Lifestyle counseling (diet, exercise, weight)",
-                            "⚖️ Monitor BMI and blood pressure regularly",
+                            "⚖ Monitor BMI and blood pressure regularly",
                             "Re-assess in 3 months",
                             "Screen for diabetic symptoms at each visit"
                         ]
@@ -752,7 +752,7 @@ elif page == "RIN MEDIC":
                             "Continue routine health monitoring",
                             "Maintain healthy diet and exercise",
                             "Annual diabetes screening recommended",
-                            "⚖️ Monitor weight and blood pressure"
+                            "⚖ Monitor weight and blood pressure"
                         ]
 
                     if temperature > 38.0 or selected_infection:
@@ -921,7 +921,7 @@ elif page == "RIN AGRI":
             st.success("API key saved for this session!")
         st.markdown("""<p style="color: #64748b; font-size: 0.8rem;"><strong>How to get a free API key:</strong><br>1. Go to <a href="https://openweathermap.org/api" target="_blank">openweathermap.org/api</a><br>2. Sign up (free, no credit card)<br>3. Go to "API Keys" in your account<br>4. Copy the key and paste it above<br>Free tier: 1,000 calls/day (more than enough)</p>""", unsafe_allow_html=True)
 
-    tab1, tab2, tab3 = st.tabs(["Crop Recommendation", "️ Weather Station", "Farm Records"])
+    tab1, tab2, tab3 = st.tabs(["Crop Recommendation", " Weather Station", "Farm Records"])
 
     with tab1:
         st.markdown("### Get Your Personalized Crop Plan")
@@ -972,7 +972,7 @@ elif page == "RIN AGRI":
                         fcols = st.columns(len(weather['forecast']))
                         for i, fc in enumerate(weather['forecast']):
                             with fcols[i]:
-                                rain_icon = "️" if fc['rain'] > 5 else "️" if fc['rain'] > 0 else "☀️"
+                                rain_icon = "" if fc['rain'] > 5 else "" if fc['rain'] > 0 else "☀"
                                 st.markdown(f"""<div style="background: #1e293b; padding: 0.6rem; border-radius: 8px; text-align: center; border: 1px solid rgba(56, 189, 248, 0.1);"><div style="font-size: 0.75rem; color: #94a3b8;">{fc['date'][5:]}</div><div style="font-size: 1.5rem; margin: 0.2rem 0;">{rain_icon}</div><div style="font-size: 0.9rem; color: white; font-weight: 600;">{fc['temp_max']}  / {fc['temp_min']} </div><div style="font-size: 0.65rem; color: #64748b;">{fc['rain']}mm rain</div></div>""", unsafe_allow_html=True)
                     temperature_crop = weather['temperature']
                     rainfall = weather.get('rainfall', 100)
@@ -1012,14 +1012,13 @@ elif page == "RIN AGRI":
                 st.markdown("### Your Action Plan")
                 st.markdown("""<div style="background: #1e293b; padding: 1.5rem; border-radius: 12px; border: 1px solid rgba(56, 189, 248, 0.2);"><ol style="color: #e2e8f0; line-height: 2;"><li><strong>Test soil pH</strong> -- If below 6.0, consider lime treatment before planting</li><li><strong>Check seed quality</strong> -- Use certified seeds for best yield</li><li><strong>Plan irrigation</strong> -- Ensure water access during dry spells</li><li><strong>Monitor weekly</strong> -- Log pest sightings and growth progress in RIN AI</li><li><strong>Connect with buyers</strong> -- Contact local cooperative before harvest</li></ol></div>""", unsafe_allow_html=True)
 
-</ol></div>""", unsafe_allow_html=True)
 
     with tab2:
-        st.markdown("### ️ Weather Station")
+        st.markdown("###  Weather Station")
         st.markdown("""<p style="color: #94a3b8;">Check live weather for any location. Enter a city or village name below.</p>""", unsafe_allow_html=True)
         with st.form("weather_form", clear_on_submit=False):
             weather_query = st.text_input("Enter Location", placeholder="e.g., Bamenda, Douala, Yaounde")
-            submitted_weather = st.form_submit_button("️ Check Weather", use_container_width=True)
+            submitted_weather = st.form_submit_button("Check Weather", use_container_width=True)
         if submitted_weather and weather_query:
             with st.spinner(f"Fetching weather for {weather_query}..."):
                 api_key_to_use = st.session_state.get('weather_api_key', None)
@@ -1031,7 +1030,7 @@ elif page == "RIN AGRI":
                 if weather_data.get('forecast'):
                     st.markdown("#### 5-Day Forecast")
                     for fc in weather_data['forecast']:
-                        rain_icon = "️" if fc['rain'] > 5 else "️" if fc['rain'] > 0 else "☀️"
+                        rain_icon = "" if fc['rain'] > 5 else "" if fc['rain'] > 0 else "☀"
                         st.markdown(f"""<div class="forecast-row"><div style="display: flex; justify-content: space-between; align-items: center;"><div style="display: flex; align-items: center; gap: 1rem;"><span style="font-size: 1.5rem;">{rain_icon}</span><div><strong style="color: white;">{fc['date']}</strong><br><span style="color: #94a3b8;">{fc['description']}</span></div></div><div style="text-align: right;"><strong style="color: #38bdf8;">{fc['temp_max']} C</strong> / <span style="color: #64748b;">{fc['temp_min']} C</span><br><span style="color: #94a3b8; font-size: 0.8rem;">{fc['rain']}mm expected</span></div></div></div>""", unsafe_allow_html=True)
             else: st.error("Could not fetch weather data. Please check the location name.")
         elif submitted_weather and not weather_query:
@@ -1052,16 +1051,16 @@ elif page == "RIN AGRI":
 # PAGE: SETTINGS
 # ═══════════════════════════════════════════════════════════════════════════════
 
-elif page == "⚙️ Settings":
-    st.markdown("## ⚙️ RIN AI System Settings")
+elif page == "⚙ Settings":
+    st.markdown("## ⚙ RIN AI System Settings")
 
     st.markdown("### Model Configuration")
     st.markdown(f"""<div class="module-card"><p><strong>Diabetes Prediction Model:</strong> Random Forest Classifier</p><p><strong>Model Accuracy:</strong> {model_accuracy:.1%}</p><p><strong>Features Used:</strong> {', '.join(feature_names)}</p><p><strong>Training Data:</strong> 2,000 synthetic samples (African demographic profile)</p><p><strong>Last Updated:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p></div>""", unsafe_allow_html=True)
 
-    st.markdown("### ️ Weather API Configuration")
+    st.markdown("###  Weather API Configuration")
     st.markdown("""<div class="module-card"><p><strong>Provider:</strong> OpenWeatherMap</p><p><strong>Endpoint:</strong> https://api.openweathermap.org/data/2.5/</p><p><strong>Free Tier:</strong> 1,000 calls/day</p><p><strong>Fallback:</strong> RIN AI Local Weather Simulation Model</p><p><strong>Cache Duration:</strong> 1 hour</p></div>""", unsafe_allow_html=True)
 
-    st.markdown("### ️ Database Management")
+    st.markdown("###  Database Management")
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         if st.button("Clear Patients", use_container_width=True):
