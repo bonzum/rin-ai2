@@ -928,53 +928,63 @@ elif page == "🌾 RIN AGRI":
 
     with tab1:
         st.markdown("### 🌾 Get Your Personalized Crop Plan")
-        col1, col2 = st.columns(2)
-        with col1:
-            farmer_name = st.text_input("Farmer Name", placeholder="e.g., John Tabi")
-            farm_location = st.text_input("Farm Location (City/Village)", placeholder="e.g., Bamenda, CM")
-            farm_size = st.number_input("Farm Size (hectares)", min_value=0.1, max_value=100.0, value=1.0, step=0.1)
-            soil_type = st.selectbox("Soil Type", ["Clay", "Sandy", "Loamy", "Silty", "Peaty", "Chalky", "Unknown"])
-        with col2:
-            nitrogen = st.slider("Soil Nitrogen (N) level", 0, 140, 50)
-            phosphorus = st.slider("Soil Phosphorus (P) level", 0, 140, 50)
-            potassium = st.slider("Soil Potassium (K) level", 0, 140, 50)
-            ph = st.slider("Soil pH Level", 0.0, 14.0, 6.5, step=0.1)
+        st.markdown("<p style='color: #64748b; font-size: 0.85rem;'>Fill in all fields below — no need to press Enter. Click the button at the bottom when done.</p>", unsafe_allow_html=True)
 
-        st.markdown("---")
-        st.markdown("### 🌤️ Live Weather Data")
-        weather = None
-        if farm_location:
-            with st.spinner(f"Fetching weather for {farm_location}..."):
-                api_key_to_use = st.session_state.get('weather_api_key', None)
-                weather = get_weather_data(farm_location, api_key_to_use)
-            if weather:
-                source_color = "#22c55e" if "API" in weather['source'] else "#f59e0b"
-                st.markdown(f"""<div style="margin-bottom: 0.5rem;"><span style="color: {source_color}; font-size: 0.8rem; font-weight: 600;">● Data Source: {weather['source']}</span></div>""", unsafe_allow_html=True)
-                wcol1, wcol2, wcol3, wcol4 = st.columns(4)
-                with wcol1: st.metric("Temperature", f"{weather['temperature']}°C", f"Feels {weather['feels_like']}°C")
-                with wcol2: st.metric("Humidity", f"{weather['humidity']}%")
-                with wcol3: st.metric("Wind", f"{weather['wind_speed']} m/s")
-                with wcol4: st.metric("Visibility", f"{weather['visibility']} km")
-                st.markdown(f"""<div class="weather-card"><div style="display: flex; justify-content: space-between; align-items: center;"><div><strong style="color: #38bdf8; font-size: 1.2rem;">{weather['description']}</strong><br><span style="color: #94a3b8;">Pressure: {weather['pressure']} hPa | Clouds: {weather['clouds']}%</span><br><span style="color: #64748b; font-size: 0.8rem;">🌅 {weather['sunrise']} | 🌇 {weather['sunset']}</span></div></div></div>""", unsafe_allow_html=True)
-                if weather.get('forecast'):
-                    st.markdown("#### 📅 5-Day Forecast")
-                    fcols = st.columns(len(weather['forecast']))
-                    for i, fc in enumerate(weather['forecast']):
-                        with fcols[i]:
-                            rain_icon = "🌧️" if fc['rain'] > 5 else "🌦️" if fc['rain'] > 0 else "☀️"
-                            st.markdown(f"""<div style="background: #1e293b; padding: 0.6rem; border-radius: 8px; text-align: center; border: 1px solid rgba(56, 189, 248, 0.1);"><div style="font-size: 0.75rem; color: #94a3b8;">{fc['date'][5:]}</div><div style="font-size: 1.5rem; margin: 0.2rem 0;">{rain_icon}</div><div style="font-size: 0.9rem; color: white; font-weight: 600;">{fc['temp_max']}° / {fc['temp_min']}°</div><div style="font-size: 0.65rem; color: #64748b;">{fc['rain']}mm rain</div></div>""", unsafe_allow_html=True)
-        else: st.info("👆 Enter a farm location above to fetch live weather data.")
+        # FIX: Wrapped in st.form() so text inputs do NOT require pressing Enter
+        with st.form("agri_form", clear_on_submit=False):
+            col1, col2 = st.columns(2)
+            with col1:
+                farmer_name = st.text_input("Farmer Name", placeholder="e.g., John Tabi")
+                farm_location = st.text_input("Farm Location (City/Village)", placeholder="e.g., Bamenda, CM")
+                farm_size = st.number_input("Farm Size (hectares)", min_value=0.1, max_value=100.0, value=1.0, step=0.1)
+                soil_type = st.selectbox("Soil Type", ["Clay", "Sandy", "Loamy", "Silty", "Peaty", "Chalky", "Unknown"])
+            with col2:
+                nitrogen = st.slider("Soil Nitrogen (N) level", 0, 140, 50)
+                phosphorus = st.slider("Soil Phosphorus (P) level", 0, 140, 50)
+                potassium = st.slider("Soil Potassium (K) level", 0, 140, 50)
+                ph = st.slider("Soil pH Level", 0.0, 14.0, 6.5, step=0.1)
 
-        st.markdown("---")
-        if weather:
-            temperature_crop = weather['temperature']
-            rainfall = weather.get('rainfall', 100)
-            st.markdown(f"""<div style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); padding: 0.8rem; border-radius: 8px; margin-bottom: 1rem;"><strong style="color: #22c55e;">✅ Auto-detected from weather data:</strong><br><span style="color: #e2e8f0;">Temperature: {temperature_crop}°C | Rainfall estimate: {rainfall}mm</span></div>""", unsafe_allow_html=True)
-        else:
-            temperature_crop = st.slider("Average Temperature (°C)", 10, 45, 25)
-            rainfall = st.slider("Average Rainfall (mm)", 0, 300, 100)
+            st.markdown("---")
+            use_live_weather = st.checkbox("Use live weather data for the location above", value=True)
+            if not use_live_weather:
+                temperature_crop = st.slider("Average Temperature (°C)", 10, 45, 25)
+                rainfall = st.slider("Average Rainfall (mm)", 0, 300, 100)
 
-        if st.button("🌱 Generate Crop Recommendation", use_container_width=True):
+            submitted = st.form_submit_button("🌱 Generate Crop Recommendation", use_container_width=True)
+
+        if submitted:
+            weather = None
+            temperature_crop = 25
+            rainfall = 100
+
+            if use_live_weather and farm_location:
+                with st.spinner(f"Fetching weather for {farm_location}..."):
+                    api_key_to_use = st.session_state.get('weather_api_key', None)
+                    weather = get_weather_data(farm_location, api_key_to_use)
+                if weather:
+                    source_color = "#22c55e" if "API" in weather['source'] else "#f59e0b"
+                    st.markdown(f"""<div style="margin-bottom: 0.5rem;"><span style="color: {source_color}; font-size: 0.8rem; font-weight: 600;">● Data Source: {weather['source']}</span></div>""", unsafe_allow_html=True)
+                    wcol1, wcol2, wcol3, wcol4 = st.columns(4)
+                    with wcol1: st.metric("Temperature", f"{weather['temperature']}°C", f"Feels {weather['feels_like']}°C")
+                    with wcol2: st.metric("Humidity", f"{weather['humidity']}%")
+                    with wcol3: st.metric("Wind", f"{weather['wind_speed']} m/s")
+                    with wcol4: st.metric("Visibility", f"{weather['visibility']} km")
+                    st.markdown(f"""<div class="weather-card"><div style="display: flex; justify-content: space-between; align-items: center;"><div><strong style="color: #38bdf8; font-size: 1.2rem;">{weather['description']}</strong><br><span style="color: #94a3b8;">Pressure: {weather['pressure']} hPa | Clouds: {weather['clouds']}%</span><br><span style="color: #64748b; font-size: 0.8rem;">🌅 {weather['sunrise']} | 🌇 {weather['sunset']}</span></div></div></div>""", unsafe_allow_html=True)
+                    if weather.get('forecast'):
+                        st.markdown("#### 📅 5-Day Forecast")
+                        fcols = st.columns(len(weather['forecast']))
+                        for i, fc in enumerate(weather['forecast']):
+                            with fcols[i]:
+                                rain_icon = "🌧️" if fc['rain'] > 5 else "🌦️" if fc['rain'] > 0 else "☀️"
+                                st.markdown(f"""<div style="background: #1e293b; padding: 0.6rem; border-radius: 8px; text-align: center; border: 1px solid rgba(56, 189, 248, 0.1);"><div style="font-size: 0.75rem; color: #94a3b8;">{fc['date'][5:]}</div><div style="font-size: 1.5rem; margin: 0.2rem 0;">{rain_icon}</div><div style="font-size: 0.9rem; color: white; font-weight: 600;">{fc['temp_max']}° / {fc['temp_min']}°</div><div style="font-size: 0.65rem; color: #64748b;">{fc['rain']}mm rain</div></div>""", unsafe_allow_html=True)
+                    temperature_crop = weather['temperature']
+                    rainfall = weather.get('rainfall', 100)
+                    st.markdown(f"""<div style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); padding: 0.8rem; border-radius: 8px; margin-bottom: 1rem;"><strong style="color: #22c55e;">✅ Auto-detected from weather data:</strong><br><span style="color: #e2e8f0;">Temperature: {temperature_crop}°C | Rainfall estimate: {rainfall}mm</span></div>""", unsafe_allow_html=True)
+                else:
+                    st.warning("⚠️ Could not fetch weather. Using default temperature (25°C) and rainfall (100mm).")
+            elif use_live_weather and not farm_location:
+                st.warning("⚠️ No farm location provided. Using default temperature (25°C) and rainfall (100mm).")
+
             with st.spinner("RIN AI is analyzing soil, weather, and market data..."):
                 recommendations = []
                 temp_factor = temperature_crop
@@ -1005,11 +1015,15 @@ elif page == "🌾 RIN AGRI":
                 st.markdown("### 📋 Your Action Plan")
                 st.markdown("""<div style="background: #1e293b; padding: 1.5rem; border-radius: 12px; border: 1px solid rgba(56, 189, 248, 0.2);"><ol style="color: #e2e8f0; line-height: 2;"><li><strong>Test soil pH</strong> — If below 6.0, consider lime treatment before planting</li><li><strong>Check seed quality</strong> — Use certified seeds for best yield</li><li><strong>Plan irrigation</strong> — Ensure water access during dry spells</li><li><strong>Monitor weekly</strong> — Log pest sightings and growth progress in RIN AI</li><li><strong>Connect with buyers</strong> — Contact local cooperative before harvest</li></ol></div>""", unsafe_allow_html=True)
 
+</ol></div>""", unsafe_allow_html=True)
+
     with tab2:
         st.markdown("### 🌤️ Weather Station")
         st.markdown("""<p style="color: #94a3b8;">Check live weather for any location. Enter a city or village name below.</p>""", unsafe_allow_html=True)
-        weather_query = st.text_input("Enter Location", placeholder="e.g., Bamenda, Douala, Yaounde")
-        if weather_query:
+        with st.form("weather_form", clear_on_submit=False):
+            weather_query = st.text_input("Enter Location", placeholder="e.g., Bamenda, Douala, Yaounde")
+            submitted_weather = st.form_submit_button("🌤️ Check Weather", use_container_width=True)
+        if submitted_weather and weather_query:
             with st.spinner(f"Fetching weather for {weather_query}..."):
                 api_key_to_use = st.session_state.get('weather_api_key', None)
                 weather_data = get_weather_data(weather_query, api_key_to_use)
@@ -1023,6 +1037,8 @@ elif page == "🌾 RIN AGRI":
                         rain_icon = "🌧️" if fc['rain'] > 5 else "🌦️" if fc['rain'] > 0 else "☀️"
                         st.markdown(f"""<div class="forecast-row"><div style="display: flex; justify-content: space-between; align-items: center;"><div style="display: flex; align-items: center; gap: 1rem;"><span style="font-size: 1.5rem;">{rain_icon}</span><div><strong style="color: white;">{fc['date']}</strong><br><span style="color: #94a3b8;">{fc['description']}</span></div></div><div style="text-align: right;"><strong style="color: #38bdf8;">{fc['temp_max']}°C</strong> / <span style="color: #64748b;">{fc['temp_min']}°C</span><br><span style="color: #94a3b8; font-size: 0.8rem;">🌧️ {fc['rain']}mm expected</span></div></div></div>""", unsafe_allow_html=True)
             else: st.error("Could not fetch weather data. Please check the location name.")
+        elif submitted_weather and not weather_query:
+            st.warning("⚠️ Please enter a location first.")
 
     with tab3:
         st.markdown("### 📊 Farm Records")
