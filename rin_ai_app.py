@@ -390,18 +390,19 @@ def save_alert(alert):
     conn.commit(); conn.close()
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# SIDEBAR - CRITICAL FIX: Navigation survives form submissions
+# NAVIGATION - Persistent sidebar + in-page quick links
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # Track current page so form submissions don't reset navigation
 if 'current_page' not in st.session_state:
     st.session_state['current_page'] = "🏠 Home"
 
-# If we came from a welcome page button, update current_page
+# Handle welcome page button clicks
 if 'navigate_to' in st.session_state:
     st.session_state['current_page'] = st.session_state['navigate_to']
     del st.session_state['navigate_to']
 
+# Sidebar navigation
 with st.sidebar:
     st.markdown("""
     <div style="text-align: center; padding: 1rem 0; border-bottom: 1px solid rgba(56, 189, 248, 0.2); margin-bottom: 1rem;">
@@ -412,11 +413,10 @@ with st.sidebar:
     """, unsafe_allow_html=True)
     st.markdown("---")
 
-    # FIX: Always render radio with correct index so it remembers where we are
     pages = ["🏠 Home", "🏥 RIN MEDIC", "🌾 RIN AGRI", "📊 Analytics", "⚙️ Settings"]
     default_index = pages.index(st.session_state['current_page'])
     page = st.radio("Navigate", pages, index=default_index, label_visibility="collapsed")
-    st.session_state['current_page'] = page  # Remember when user manually clicks
+    st.session_state['current_page'] = page
 
     st.markdown("---")
     st.markdown("### 🔋 System Status")
@@ -428,8 +428,39 @@ with st.sidebar:
     cycle_steps = ["Collect", "Clean", "Understand", "Connect", "Act", "Learn"]
     current_step = (datetime.now().second // 10) % 6
     for i, step in enumerate(cycle_steps):
-        if i == current_step: st.markdown(f"**→ {step}** ⚡")
+        if i == current_step: st.markdown(f"**-> {step}**")
         else: st.markdown(f"<span style='color: #64748b'>{step}</span>", unsafe_allow_html=True)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TOP NAVIGATION BAR - Visible on every page for easy switching
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def render_top_nav(current_page):
+    """Render a top navigation bar with quick-switch buttons."""
+    nav_items = {
+        "🏠 Home": "home",
+        "🏥 RIN MEDIC": "medic", 
+        "🌾 RIN AGRI": "agri",
+        "📊 Analytics": "analytics",
+        "⚙️ Settings": "settings"
+    }
+
+    cols = st.columns(len(nav_items))
+    for i, (label, key) in enumerate(nav_items.items()):
+        with cols[i]:
+            if label == current_page:
+                st.markdown(f"""
+                <div style="background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); 
+                            color: white; padding: 0.6rem; border-radius: 10px; 
+                            text-align: center; font-weight: 700; font-size: 0.85rem;
+                            border: 2px solid #38bdf8;">
+                    {label}
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                if st.button(label, key=f"nav_{key}", use_container_width=True):
+                    st.session_state['current_page'] = label
+                    st.rerun()
 
 # MAIN HEADER
 st.markdown("""
@@ -445,6 +476,9 @@ st.markdown("""
     </p>
 </div>
 """, unsafe_allow_html=True)
+
+# Render top nav on every page
+render_top_nav(page)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # PAGE: HOME / WELCOME — FIX: Make modules visible on first page
@@ -514,11 +548,15 @@ if page == "🏠 Home":
     </div>
     """, unsafe_allow_html=True)
 
+    # Bottom nav for RIN AGRI
+    render_bottom_nav("🌾 RIN AGRI")
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # PAGE: DASHBOARD (Analytics renamed)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 elif page == "📊 Analytics":
+    st.markdown("<div style='background: linear-gradient(90deg, #1e293b 0%, #0f172a 100%); padding: 0.8rem 1.2rem; border-radius: 8px; border-left: 4px solid #38bdf8; margin-bottom: 1rem;'><span style='color: #94a3b8; font-size: 0.8rem;'>📍 You are here:</span> <strong style='color: white;'>Analytics</strong> <span style='color: #64748b;'>| Intelligence Dashboard</span></div>", unsafe_allow_html=True)
     st.markdown("## 📊 RIN AI Intelligence Analytics")
     conn = get_db_connection()
     daily_counts = pd.read_sql_query("SELECT DATE(created_at) as date, COUNT(*) as count FROM patients GROUP BY DATE(created_at) ORDER BY date", conn)
@@ -576,6 +614,7 @@ elif page == "📊 Analytics":
 # ═══════════════════════════════════════════════════════════════════════════════
 
 elif page == "🏥 RIN MEDIC":
+    st.markdown("<div style='background: linear-gradient(90deg, #1e293b 0%, #0f172a 100%); padding: 0.8rem 1.2rem; border-radius: 8px; border-left: 4px solid #ef4444; margin-bottom: 1rem;'><span style='color: #94a3b8; font-size: 0.8rem;'>📍 You are here:</span> <strong style='color: white;'>RIN MEDIC</strong> <span style='color: #64748b;'>| Clinical Decision Support</span></div>", unsafe_allow_html=True)
     st.markdown("## 🏥 RIN MEDIC — Clinical Decision Support")
     st.markdown("""<p style="color: #94a3b8;">AI-powered diabetes risk assessment and outbreak detection. Every recommendation includes an explanation. <strong>Humans are always in control.</strong></p>""", unsafe_allow_html=True)
 
@@ -885,11 +924,15 @@ elif page == "🏥 RIN MEDIC":
         else:
             st.info("No patient records found. Add patients using the New Assessment tab.")
 
+    # Bottom nav for RIN MEDIC
+    render_bottom_nav("🏥 RIN MEDIC")
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # PAGE: RIN AGRI
 # ═══════════════════════════════════════════════════════════════════════════════
 
 elif page == "🌾 RIN AGRI":
+    st.markdown("<div style='background: linear-gradient(90deg, #1e293b 0%, #0f172a 100%); padding: 0.8rem 1.2rem; border-radius: 8px; border-left: 4px solid #22c55e; margin-bottom: 1rem;'><span style='color: #94a3b8; font-size: 0.8rem;'>📍 You are here:</span> <strong style='color: white;'>RIN AGRI</strong> <span style='color: #64748b;'>| Precision Agriculture</span></div>", unsafe_allow_html=True)
     st.markdown("## 🌾 RIN AGRI — Precision Agriculture Intelligence")
     st.markdown("""<p style="color: #94a3b8;">AI-powered crop recommendations with <strong>live weather data</strong>. Delivers personalized harvest strategies based on real-time soil, weather, and market data.</p>""", unsafe_allow_html=True)
 
@@ -1022,11 +1065,15 @@ elif page == "🌾 RIN AGRI":
             st.download_button("📥 Download Farm Records (CSV)", csv, "rin_farm_records.csv", "text/csv")
         else: st.info("No farm assessments yet. Use the Crop Recommendation tab to add your first farm.")
 
+    # Bottom nav for Analytics
+    render_bottom_nav("📊 Analytics")
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # PAGE: SETTINGS
 # ═══════════════════════════════════════════════════════════════════════════════
 
 elif page == "⚙️ Settings":
+    st.markdown("<div style='background: linear-gradient(90deg, #1e293b 0%, #0f172a 100%); padding: 0.8rem 1.2rem; border-radius: 8px; border-left: 4px solid #a855f7; margin-bottom: 1rem;'><span style='color: #94a3b8; font-size: 0.8rem;'>📍 You are here:</span> <strong style='color: white;'>Settings</strong> <span style='color: #64748b;'>| System Configuration</span></div>", unsafe_allow_html=True)
     st.markdown("## ⚙️ RIN AI System Settings")
 
     st.markdown("### 🧠 Model Configuration")
@@ -1111,6 +1158,34 @@ elif page == "⚙️ Settings":
         </ul>
     </div>
     """, unsafe_allow_html=True)
+
+
+    # Bottom nav for Settings
+    render_bottom_nav("⚙️ Settings")
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# BOTTOM NAVIGATION - Quick switch between modules
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def render_bottom_nav(current_page):
+    """Render bottom navigation buttons for easy module switching."""
+    st.markdown("---")
+    st.markdown("### 🚀 Quick Navigation")
+    cols = st.columns(4)
+    nav_options = [
+        ("🏠 Home", "home_btn"),
+        ("🏥 RIN MEDIC", "medic_btn"),
+        ("🌾 RIN AGRI", "agri_btn"),
+        ("📊 Analytics", "analytics_btn")
+    ]
+    for i, (label, key) in enumerate(nav_options):
+        with cols[i]:
+            if label != current_page:
+                if st.button(f"Go to {label}", key=f"bottom_{key}", use_container_width=True):
+                    st.session_state['current_page'] = label
+                    st.rerun()
+            else:
+                st.markdown(f"<div style='text-align: center; padding: 0.5rem; color: #38bdf8; font-weight: 600;'>📍 {label}</div>", unsafe_allow_html=True)
 
 # FOOTER
 st.markdown("---")
